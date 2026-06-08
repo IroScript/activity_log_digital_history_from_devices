@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Year 50,000 - Quantum Logo</title>
+    <!-- Tailwind CSS for futuristic UI layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #030308;
+            font-family: 'Orbitron', sans-serif;
+            cursor: crosshair;
+        }
+
+        /* Deep space background gradient */
+        .cosmic-bg {
+            background: radial-gradient(circle at center, #1a0b2e 0%, #030308 60%);
+        }
+
+        /* Glowing text effect */
+        .glitch-text {
+            color: #ffffff;
+            text-shadow: 
+                0 0 10px #00ffff,
+                0 0 20px #00ffff,
+                0 0 40px #ff00ff;
+            letter-spacing: 0.5em;
+            text-transform: uppercase;
+        }
+
+        /* Ambient glowing orb behind the 3D canvas */
+        .ambient-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(0, 255, 255, 0.15) 0%, rgba(255, 0, 255, 0.1) 40%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            z-index: 0;
+            filter: blur(30px);
+            animation: pulseGlow 4s infinite alternate;
+        }
+
+        @keyframes pulseGlow {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            100% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+        }
+
+        #canvas-container {
+            position: relative;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="cosmic-bg min-h-screen flex flex-col items-center justify-center relative select-none">
+
+    <!-- Ambient background glow -->
+    <div class="ambient-glow"></div>
+
+    <!-- 3D Logo Container -->
+    <div id="canvas-container" class="w-full h-[60vh] md:h-[70vh] flex items-center justify-center"></div>
+
+    <!-- Futuristic Typography -->
+    <div class="absolute bottom-16 flex flex-col items-center z-20 pointer-events-none">
+        <h1 class="text-3xl md:text-5xl font-black glitch-text mb-2">A E T H E R</h1>
+        <p class="text-cyan-400 text-xs md:text-sm tracking-[0.4em] opacity-70">QUANTUM CORE . EST 50,000 AD</p>
+    </div>
+
+    <!-- UI Overlay elements -->
+    <div class="absolute top-8 left-8 border-l-2 border-t-2 border-cyan-500 w-8 h-8 opacity-50"></div>
+    <div class="absolute top-8 right-8 border-r-2 border-t-2 border-fuchsia-500 w-8 h-8 opacity-50"></div>
+    <div class="absolute bottom-8 left-8 border-l-2 border-b-2 border-fuchsia-500 w-8 h-8 opacity-50"></div>
+    <div class="absolute bottom-8 right-8 border-r-2 border-b-2 border-cyan-500 w-8 h-8 opacity-50"></div>
+
+    <script>
+        window.onload = function() {
+            // --- Scene Setup ---
+            const container = document.getElementById('canvas-container');
+            const scene = new THREE.Scene();
+            
+            // Camera setup
+            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / (window.innerHeight * 0.7), 0.1, 1000);
+            camera.position.z = 15;
+
+            // Renderer setup
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight * 0.7);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // --- Logo Elements (The Quantum Core) ---
+            
+            // 1. Outer Torus Knot (Energy Field)
+            const torusGeometry = new THREE.TorusKnotGeometry(3, 0.4, 200, 32, 3, 5);
+            const torusMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0x00ffff,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.3,
+                emissive: 0x00ffff,
+                emissiveIntensity: 0.5
+            });
+            const torus = new THREE.Mesh(torusGeometry, torusMaterial);
+            scene.add(torus);
+
+            // 2. Inner Icosahedron (The Core)
+            const coreGeometry = new THREE.IcosahedronGeometry(1.5, 0);
+            const coreMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0xff00ff,
+                metalness: 0.9,
+                roughness: 0.1,
+                transmission: 0.9, // glass-like
+                thickness: 0.5,
+                emissive: 0xaa00ff,
+                emissiveIntensity: 0.8,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.1
+            });
+            const core = new THREE.Mesh(coreGeometry, coreMaterial);
+            scene.add(core);
+
+            // 3. Inner Wireframe (Data lines)
+            const coreWireGeometry = new THREE.IcosahedronGeometry(1.52, 1);
+            const coreWireMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.15
+            });
+            const coreWire = new THREE.Mesh(coreWireGeometry, coreWireMaterial);
+            scene.add(coreWire);
+
+            // 4. Particle System (Orbiting Quantum Dust)
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 800;
+            const posArray = new Float32Array(particlesCount * 3);
+            
+            for(let i = 0; i < particlesCount * 3; i++) {
+                // Generate particles in a sphere
+                const radius = 6 + Math.random() * 4;
+                const theta = Math.random() * 2 * Math.PI;
+                const phi = Math.acos((Math.random() * 2) - 1);
+                
+                posArray[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+                posArray[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+                posArray[i * 3 + 2] = radius * Math.cos(phi);
+            }
+            
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particlesMaterial = new THREE.PointsMaterial({
+                size: 0.05,
+                color: 0x00ffff,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particlesMesh);
+
+            // --- Lighting ---
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+            scene.add(ambientLight);
+
+            const pointLight1 = new THREE.PointLight(0x00ffff, 2, 50);
+            pointLight1.position.set(5, 5, 5);
+            scene.add(pointLight1);
+
+            const pointLight2 = new THREE.PointLight(0xff00ff, 2, 50);
+            pointLight2.position.set(-5, -5, -5);
+            scene.add(pointLight2);
+
+            // --- Interaction ---
+            let mouseX = 0;
+            let mouseY = 0;
+            let targetX = 0;
+            let targetY = 0;
+
+            const windowHalfX = window.innerWidth / 2;
+            const windowHalfY = window.innerHeight / 2;
+
+            document.addEventListener('mousemove', (event) => {
+                mouseX = (event.clientX - windowHalfX);
+                mouseY = (event.clientY - windowHalfY);
+            });
+
+            // Touch support for mobile
+            document.addEventListener('touchmove', (event) => {
+                if(event.touches.length > 0) {
+                    mouseX = (event.touches[0].clientX - windowHalfX);
+                    mouseY = (event.touches[0].clientY - windowHalfY);
+                }
+            });
+
+            // --- Animation Loop ---
+            const clock = new THREE.Clock();
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                const elapsedTime = clock.getElapsedTime();
+
+                // Smoothly interpolate target rotation based on mouse
+                targetX = mouseX * 0.001;
+                targetY = mouseY * 0.001;
+
+                // Rotate the main elements
+                torus.rotation.x += 0.005;
+                torus.rotation.y += 0.01;
+                
+                core.rotation.x -= 0.008;
+                core.rotation.y -= 0.008;
+                
+                coreWire.rotation.x -= 0.008;
+                coreWire.rotation.y -= 0.008;
+
+                // Parallax effect with mouse
+                scene.rotation.x += 0.05 * (targetY - scene.rotation.x);
+                scene.rotation.y += 0.05 * (targetX - scene.rotation.y);
+
+                // Pulsing effect on the core
+                const scale = 1 + Math.sin(elapsedTime * 2) * 0.1;
+                core.scale.set(scale, scale, scale);
+                coreWire.scale.set(scale, scale, scale);
+
+                // Rotate particles
+                particlesMesh.rotation.y = elapsedTime * 0.05;
+                particlesMesh.rotation.z = elapsedTime * 0.02;
+
+                // Color morphing for the lights
+                pointLight1.color.setHSL((Math.sin(elapsedTime * 0.5) + 1) * 0.5, 1, 0.5);
+                
+                renderer.render(scene, camera);
+            }
+
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                const width = window.innerWidth;
+                const height = window.innerHeight * 0.7;
+                
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                
+                renderer.setSize(width, height);
+            });
+
+            // Start animation
+            animate();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenRecall - Timeline</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <!-- Flatpickr CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Flatpickr JS -->
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    :root {
+      --bg-primary: #030308;
+      --glass-bg: rgba(5, 5, 15, 0.6);
+      --glass-border: rgba(0, 255, 255, 0.2);
+      --glass-border-fuchsia: rgba(255, 0, 255, 0.2);
+      --accent-cyan: #00ffff;
+      --accent-fuchsia: #ff00ff;
+      --text-primary: #e0f2fe;
+      --text-secondary: #7dd3fc;
+      --text-muted: #38bdf8;
+      --glow-cyan: 0 0 10px rgba(0, 255, 255, 0.5);
+      --glow-fuchsia: 0 0 10px rgba(255, 0, 255, 0.5);
+      --transition-speed: 0.3s;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Orbitron', sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      overflow-x: hidden;
+      cursor: crosshair;
+    }
+
+    /* Cosmic Background Setup */
+    #bg-canvas-container {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      z-index: -1; background: radial-gradient(circle at center, #1a0b2e 0%, #030308 60%);
+    }
+
+    .ambient-glow {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(0, 255, 255, 0.05) 0%, rgba(255, 0, 255, 0.03) 40%, rgba(0,0,0,0) 70%);
+      border-radius: 50%; z-index: -1; filter: blur(40px);
+      animation: pulseGlow 5s infinite alternate; pointer-events: none;
+    }
+
+    @keyframes pulseGlow { 0% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; } 100% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; } }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg-primary); }
+    ::-webkit-scrollbar-thumb { background: rgba(0, 255, 255, 0.3); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent-cyan); box-shadow: var(--glow-cyan); }
+
+    /* Futuristic UI Corner Decorations */
+    .corner-tl, .corner-tr, .corner-bl, .corner-br { position: absolute; width: 15px; height: 15px; pointer-events: none; }
+    .corner-tl { top: -1px; left: -1px; border-top: 2px solid var(--accent-cyan); border-left: 2px solid var(--accent-cyan); }
+    .corner-tr { top: -1px; right: -1px; border-top: 2px solid var(--accent-fuchsia); border-right: 2px solid var(--accent-fuchsia); }
+    .corner-bl { bottom: -1px; left: -1px; border-bottom: 2px solid var(--accent-fuchsia); border-left: 2px solid var(--accent-fuchsia); }
+    .corner-br { bottom: -1px; right: -1px; border-bottom: 2px solid var(--accent-cyan); border-right: 2px solid var(--accent-cyan); }
+
+    /* Glitch Text Effect */
+    .glitch-text {
+      color: #ffffff; text-shadow: 0 0 5px var(--accent-cyan), 0 0 10px var(--accent-cyan), 0 0 20px var(--accent-fuchsia);
+      letter-spacing: 0.1em; text-transform: uppercase;
+    }
+
+    /* Glass Container Helper */
+    .glass-panel {
+      background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border); position: relative;
+    }
+
+    /* Sidebar Styling */
+    aside {
+      width: 280px; background: linear-gradient(180deg, rgba(10,5,25,0.8) 0%, rgba(3,3,8,0.9) 100%);
+      backdrop-filter: blur(15px); border-right: 1px solid var(--glass-border-fuchsia);
+      display: flex; flex-direction: column; height: 100vh; position: fixed; left: 0; top: 0;
+      z-index: 100; box-shadow: 5px 0 20px rgba(255, 0, 255, 0.05);
+    }
+
+    /* Sidebar Logo */
+    .brand-container {
+      padding: 30px 20px; display: flex; flex-direction: column; align-items: center;
+      border-bottom: 1px solid rgba(255, 0, 255, 0.2);
+    }
+    #logo-canvas { width: 150px; height: 150px; position: relative; margin-bottom: -10px; }
+    #logo-canvas::after {
+      content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 80px; height: 80px; background: radial-gradient(circle, rgba(0,255,255,0.3) 0%, transparent 70%);
+      z-index: -1; border-radius: 50%;
+    }
+    .brand-name { font-size: 1.4rem; font-weight: 900; letter-spacing: 2px; }
+
+    .nav-links { list-style: none; padding: 30px 16px; display: flex; flex-direction: column; gap: 12px; flex-grow: 1; }
+    .nav-item {
+      padding: 14px 20px; display: flex; align-items: center; gap: 15px; cursor: pointer; color: var(--text-secondary);
+      font-weight: 500; text-transform: uppercase; letter-spacing: 1px; font-size: 0.85rem;
+      transition: all var(--transition-speed); position: relative; overflow: hidden; border: 1px solid transparent;
+    }
+    .nav-item::before {
+      content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.1), transparent); transition: left 0.5s;
+    }
+    .nav-item:hover::before { left: 100%; }
+    .nav-item:hover, .nav-item.active {
+      color: #fff; border-color: rgba(0, 255, 255, 0.3); background: rgba(0, 255, 255, 0.05); box-shadow: inset 0 0 15px rgba(0, 255, 255, 0.1);
+    }
+    .nav-item.active { border-left: 3px solid var(--accent-cyan); border-right: 3px solid var(--accent-fuchsia); text-shadow: 0 0 5px var(--accent-cyan); }
+    .nav-item i { font-size: 1.3rem; }
+
+    .sidebar-footer {
+      padding: 24px; border-top: 1px solid var(--glass-border); font-size: 0.75rem; color: var(--text-muted);
+      display: flex; align-items: center; gap: 10px; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .status-dot {
+      width: 8px; height: 8px; background-color: var(--accent-cyan); border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-cyan); animation: blink 2s infinite;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    /* Main Content */
+    main { margin-left: 280px; flex-grow: 1; min-height: 100vh; display: flex; flex-direction: column; padding: 50px; position: relative; z-index: 10; }
+
+    header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 50px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 20px; }
+    .header-title h1 { font-size: 2.2rem; margin-bottom: 8px; font-weight: 900; }
+    .header-title p { color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px; }
+
+    .calendar-container { display: flex; align-items: center; gap: 12px; padding: 12px 20px; cursor: pointer; border-radius: 0; transition: all 0.3s; }
+    .calendar-container:hover { box-shadow: var(--glow-cyan); border-color: var(--accent-cyan); }
+    .calendar-container i { color: var(--accent-cyan); font-size: 1.2rem; text-shadow: var(--glow-cyan); }
+    .calendar-container input { background: transparent; border: none; color: #fff; font-family: inherit; font-size: 0.9rem; letter-spacing: 1px; cursor: pointer; outline: none; width: 140px; text-transform: uppercase; }
+
+    /* Panels */
+    .panel { display: none; animation: quantumFadeIn 0.5s cubic-bezier(0.1, 1, 0.1, 1); }
+    .panel.active { display: block; }
+    @keyframes quantumFadeIn { 0% { opacity: 0; transform: scale(0.98) translateY(10px); filter: blur(5px); } 100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } }
+
+    /* Stats Grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px; margin-bottom: 50px; }
+    .stat-card { padding: 30px; display: flex; align-items: center; gap: 25px; transition: transform 0.3s, box-shadow 0.3s; }
+    .stat-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0, 255, 255, 0.15); border-color: var(--accent-cyan); }
+    .stat-icon { font-size: 2.5rem; color: var(--accent-cyan); text-shadow: var(--glow-cyan); }
+    .stat-card:nth-child(2) .stat-icon { color: var(--accent-fuchsia); text-shadow: var(--glow-fuchsia); }
+    .stat-card:nth-child(2):hover { box-shadow: 0 10px 30px rgba(255, 0, 255, 0.15); border-color: var(--accent-fuchsia); }
+    .stat-info h3 { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; }
+    .stat-info p { font-size: 2rem; font-weight: 700; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
+
+    /* Layout */
+    .dashboard-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 40px; align-items: start; }
+    .viewer-card, .chart-card { padding: 30px; }
+
+    .image-preview {
+      width: 100%; position: relative; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center;
+      cursor: crosshair; border: 1px solid rgba(0,255,255,0.3); box-shadow: inset 0 0 20px rgba(0,0,0,0.8); background: #000; overflow: hidden;
+    }
+    .image-preview img { width: 100%; height: 100%; object-fit: contain; opacity: 0.9; transition: all 0.5s; }
+    .image-preview:hover img { transform: scale(1.02); opacity: 1; filter: contrast(1.1); }
+    /* Scanline effect */
+    .image-preview::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+      background-size: 100% 4px, 3px 100%; pointer-events: none; z-index: 2;
+    }
+
+    .app-badge {
+      position: absolute; top: 20px; left: 20px; background: rgba(0, 0, 0, 0.7); border: 1px solid var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(0, 255, 255, 0.2); padding: 8px 15px; font-size: 0.8rem; text-transform: uppercase;
+      letter-spacing: 1px; color: #fff; display: flex; align-items: center; gap: 8px; z-index: 3;
+    }
+    .app-badge i { color: var(--accent-cyan); }
+
+    .slider-controls { margin-top: 30px; display: flex; flex-direction: column; gap: 20px; }
+    .slider-info { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); }
+    .timestamp-highlight { font-size: 1.1rem; color: var(--accent-fuchsia); text-shadow: var(--glow-fuchsia); font-weight: 700; }
+
+    /* Slider */
+    .custom-slider { width: 100%; height: 2px; background: rgba(255,255,255,0.1); outline: none; -webkit-appearance: none; position: relative; }
+    .custom-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 25px; height: 10px; background: var(--accent-cyan); cursor: ew-resize;
+      box-shadow: 0 0 15px var(--accent-cyan); clip-path: polygon(20% 0%, 80% 0%, 100% 50%, 80% 100%, 20% 100%, 0% 50%);
+    }
+
+    /* Chart */
+    .chart-card h2 { font-size: 1.1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; display: flex; align-items: center; gap: 10px; color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.5); }
+    .chart-card h2 i { color: var(--accent-fuchsia); text-shadow: var(--glow-fuchsia); }
+    .chart-wrapper { position: relative; width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+
+    /* Search */
+    .search-input-wrapper { position: relative; flex-grow: 1; margin-bottom: 40px; }
+    .search-input-wrapper i { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: var(--accent-cyan); font-size: 1.3rem; text-shadow: var(--glow-cyan); }
+    .search-input-wrapper input {
+      width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--accent-cyan); box-shadow: inset 0 0 15px rgba(0, 255, 255, 0.1);
+      padding: 20px 20px 20px 60px; color: #fff; font-family: inherit; font-size: 1rem; outline: none; transition: all 0.3s; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .search-input-wrapper input:focus { box-shadow: 0 0 20px rgba(0, 255, 255, 0.3), inset 0 0 15px rgba(0, 255, 255, 0.2); }
+
+    /* Gallery */
+    .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 30px; }
+    .gallery-card { transition: all 0.3s; display: flex; flex-direction: column; cursor: crosshair; }
+    .gallery-card:hover { transform: translateY(-5px) scale(1.02); border-color: var(--accent-fuchsia); box-shadow: 0 10px 30px rgba(255, 0, 255, 0.15); }
+    .gallery-img-container { position: relative; width: 100%; aspect-ratio: 16/9; background-color: #000; overflow: hidden; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .gallery-img-container::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 4px, 3px 100%; pointer-events: none; }
+    .gallery-img-container img { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; transition: opacity 0.3s, transform 0.3s; }
+    .gallery-card:hover .gallery-img-container img { opacity: 1; transform: scale(1.05); }
+    .gallery-actions { position: absolute; top: 15px; right: 15px; opacity: 0; transition: opacity 0.3s; z-index: 10; }
+    .gallery-card:hover .gallery-actions { opacity: 1; }
+    .btn-icon-danger { width: 35px; height: 35px; background: rgba(0,0,0,0.8); border: 1px solid #ef4444; color: #ef4444; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
+    .btn-icon-danger:hover { background: #ef4444; color: #fff; box-shadow: 0 0 15px #ef4444; }
+    .gallery-info { padding: 20px; display: flex; flex-direction: column; gap: 10px; flex-grow: 1; }
+    .gallery-meta { display: flex; justify-content: space-between; font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 1px; }
+    .gallery-title { font-size: 0.9rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+    .gallery-app-tag { color: var(--accent-fuchsia); text-shadow: var(--glow-fuchsia); }
+    .similarity-badge { background: rgba(0, 255, 255, 0.1); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 4px 8px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; box-shadow: var(--glow-cyan); }
+
+    /* Modal */
+    .overlay-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(3, 3, 8, 0.95); backdrop-filter: blur(20px); z-index: 1000; display: none; justify-content: center; align-items: center; padding: 40px; }
+    .overlay-modal.active { display: flex; }
+    .modal-content-container { width: 100%; max-width: 1400px; height: 100%; display: grid; grid-template-columns: 3fr 2fr; box-shadow: 0 0 50px rgba(0, 255, 255, 0.2); }
+    .modal-close-btn { position: absolute; top: 25px; right: 25px; background: transparent; border: 1px solid var(--accent-cyan); color: var(--accent-cyan); width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.5rem; z-index: 10; transition: all 0.2s; }
+    .modal-close-btn:hover { background: var(--accent-cyan); color: #000; box-shadow: var(--glow-cyan); }
+    .modal-viewer-side { padding: 40px; border-right: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; background: #000; position: relative; }
+    .modal-viewer-side img { max-width: 100%; max-height: 100%; object-fit: contain; border: 1px solid rgba(255,255,255,0.1); }
+    .modal-details-side { padding: 50px; display: flex; flex-direction: column; gap: 30px; overflow-y: auto; background: rgba(5,5,15,0.8); }
+    .modal-details-header h2 { font-size: 1.8rem; font-weight: 900; color: #fff; text-shadow: var(--glow-cyan); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; }
+    .modal-details-header p { color: var(--accent-fuchsia); font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; text-shadow: var(--glow-fuchsia); }
+    .modal-ocr-container { flex-grow: 1; display: flex; flex-direction: column; gap: 15px; }
+    .modal-ocr-container h3 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px; color: var(--text-secondary); }
+    .ocr-textbox { flex-grow: 1; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); padding: 20px; color: #fff; font-family: 'Courier New', monospace; font-size: 0.85rem; line-height: 1.6; overflow-y: auto; white-space: pre-wrap; max-height: 400px; }
+    .ocr-textbox::selection { background: var(--accent-fuchsia); color: #fff; }
+    .btn-danger-outline { background: transparent; border: 1px solid #ef4444; color: #ef4444; padding: 12px 25px; cursor: pointer; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 10px; transition: all 0.2s; }
+    .btn-danger-outline:hover { background: #ef4444; color: #000; box-shadow: 0 0 20px #ef4444; }
+
+    .no-history-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 100px 20px; text-align: center; }
+    .no-history-state i { font-size: 4rem; color: var(--accent-cyan); text-shadow: var(--glow-cyan); margin-bottom: 25px; }
+    .no-history-state h2 { font-size: 1.5rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 15px; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+    .no-history-state p { color: var(--text-secondary); font-size: 0.9rem; max-width: 500px; line-height: 1.6; letter-spacing: 1px; }
+
+  </style>
+</head>
+<body>
+  
+  <!-- Full Screen 3D Background -->
+  <div id="bg-canvas-container"></div>
+  <div class="ambient-glow"></div>
+
+  <!-- Sidebar -->
+  <aside>
+    <!-- Combined 50k Quantum Core Logo in Sidebar -->
+    <div class="brand-container">
+      <div id="logo-canvas"></div>
+      <div class="brand-name glitch-text">OpenRecall</div>
+    </div>
+    
+    <ul class="nav-links">
+      <li class="nav-item active" onclick="switchPanel('timeline')">
+        <i class="bi bi-cpu"></i>
+        <span>Timeline Dashboard</span>
+      </li>
+      <li class="nav-item" onclick="switchPanel('search')">
+        <i class="bi bi-radar"></i>
+        <span>Semantic Search</span>
+      </li>
+    </ul>
+    <div class="sidebar-footer">
+      <div class="status-dot"></div>
+      <span>Recording in Background</span>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main>
+    <header>
+      <div class="header-title">
+        <h1 id="mainHeading" class="glitch-text">Timeline Overview</h1>
+        <p id="subHeading">Explore your screen captures and timeline history.</p>
+      </div>
+      <div class="glass-panel calendar-container" id="datePickerBtn">
+        <div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>
+        <i class="bi bi-calendar-event"></i>
+        <input type="text" id="dateInput" placeholder="SELECT DATE">
+      </div>
+    </header>
+
+    <!-- Overview Cards -->
+    <div class="stats-grid">
+      <div class="glass-panel stat-card">
+        <div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>
+        <div class="stat-icon"><i class="bi bi-camera-reels"></i></div>
+        <div class="stat-info">
+          <h3>Total Captures</h3>
+          <p id="totalCapturesCount">0</p>
+        </div>
+      </div>
+      <div class="glass-panel stat-card">
+        <div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>
+        <div class="stat-icon"><i class="bi bi-boxes"></i></div>
+        <div class="stat-info">
+          <h3>Unique Apps</h3>
+          <p id="uniqueAppsCount">0</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel 1: Timeline -->
+    <div id="timelinePanel" class="panel active">
+      <div class="dashboard-layout">
+        <!-- Viewer -->
+        <div class="glass-panel viewer-card" id="timelineViewerCard">
+          <div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>
+          <div class="image-preview" onclick="openDetailsModal(currentActiveEntry)">
+            <div class="app-badge"><i class="bi bi-terminal"></i> <span id="activeAppLabel">System App</span></div>
+            <img id="viewerImage" src="" alt="Active App">
+          </div>
+          <div class="slider-controls">
+            <div class="slider-info">
+              <span id="captureTimeAgo">Initializing...</span>
+              <span class="timestamp-highlight" id="captureTimestamp">--:--:--</span>
+            </div>
+            <input type="range" class="custom-slider" id="timelineSlider" min="0" max="0" step="1" value="0">
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="glass-panel chart-card">
+          <div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>
+          <h2><i class="bi bi-pie-chart-fill"></i> App Analytics</h2>
+          <div class="chart-wrapper"><canvas id="appStatsChart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel 2: Search -->
+    <div id="searchPanel" class="panel">
+      <div class="search-input-wrapper glass-panel">
+        <div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>
+        <i class="bi bi-search"></i>
+        <input type="text" id="searchInput" placeholder="SEARCH SCREENSHOTS BY KEYWORD..." oninput="triggerSearch()">
+      </div>
+      <div class="gallery-grid" id="searchResultsGrid"></div>
+    </div>
+  </main>
+
+  <!-- Detailed View Modal -->
+  <div class="overlay-modal" id="detailsModal">
+    <div class="glass-panel modal-content-container">
+      <div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>
+      <button class="modal-close-btn" onclick="closeDetailsModal()"><i class="bi bi-x-lg"></i></button>
+      <div class="modal-viewer-side"><img id="modalViewerImage" src="" alt="Full Screen capture"></div>
+      <div class="modal-details-side">
+        <div class="modal-details-header">
+          <h2 id="modalAppTitle">System App</h2>
+          <p id="modalTimestamp">--:--:--</p>
+        </div>
+        <div class="modal-ocr-container">
+          <h3>Extracted Text (OCR)</h3>
+          <div class="ocr-textbox" id="modalOcrText">Loading OCR text...</div>
+        </div>
+        <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 30px; display: flex; justify-content: space-between;">
+          <button class="btn-danger-outline" onclick="deleteCurrentEntry()"><i class="bi bi-trash3"></i> Delete Capture</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 3D Background Logic (Cosmic Dust) ---
+    function init3DBackground() {
+      const container = document.getElementById('bg-canvas-container');
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.z = 15;
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(renderer.domElement);
+
+      const particlesGeometry = new THREE.BufferGeometry();
+      const posArray = new Float32Array(800 * 3);
+      for(let i = 0; i < 800; i++) {
+          const radius = 5 + Math.random() * 15;
+          const theta = Math.random() * 2 * Math.PI;
+          const phi = Math.acos((Math.random() * 2) - 1);
+          posArray[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+          posArray[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+          posArray[i * 3 + 2] = radius * Math.cos(phi);
+      }
+      particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+      const particlesMaterial = new THREE.PointsMaterial({
+          size: 0.05, color: 0x00ffff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending
+      });
+      const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+      scene.add(particlesMesh);
+
+      const clock = new THREE.Clock();
+      let mouseX = 0, mouseY = 0;
+      document.addEventListener('mousemove', (event) => {
+          mouseX = (event.clientX - window.innerWidth/2) * 0.0005;
+          mouseY = (event.clientY - window.innerHeight/2) * 0.0005;
+      });
+
+      function animate() {
+          requestAnimationFrame(animate);
+          const elapsedTime = clock.getElapsedTime();
+          particlesMesh.rotation.y = elapsedTime * 0.02;
+          particlesMesh.rotation.z = elapsedTime * 0.01;
+          scene.rotation.x += 0.05 * (mouseY - scene.rotation.x);
+          scene.rotation.y += 0.05 * (mouseX - scene.rotation.y);
+          renderer.render(scene, camera);
+      }
+      animate();
+
+      window.addEventListener('resize', () => {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+
+    // --- 3D Logo Logic (Quantum Core) in Sidebar ---
+    function init3DLogo() {
+      const container = document.getElementById('logo-canvas');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+      camera.position.z = 12;
+
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(renderer.domElement);
+
+      // Torus
+      const torus = new THREE.Mesh(
+          new THREE.TorusKnotGeometry(2.5, 0.3, 100, 16, 3, 5),
+          new THREE.MeshPhysicalMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.4, emissive: 0x00ffff, emissiveIntensity: 0.6 })
+      );
+      scene.add(torus);
+
+      // Core
+      const core = new THREE.Mesh(
+          new THREE.IcosahedronGeometry(1.2, 0),
+          new THREE.MeshPhysicalMaterial({ color: 0xff00ff, metalness: 0.8, roughness: 0.2, transmission: 0.9, thickness: 0.5, emissive: 0xaa00ff, emissiveIntensity: 0.7 })
+      );
+      scene.add(core);
+
+      // Wireframe
+      const coreWire = new THREE.Mesh(
+          new THREE.IcosahedronGeometry(1.22, 1),
+          new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.2 })
+      );
+      scene.add(coreWire);
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+      const light1 = new THREE.PointLight(0x00ffff, 2, 20);
+      light1.position.set(5, 5, 5);
+      scene.add(light1);
+
+      const clock = new THREE.Clock();
+      function animate() {
+          requestAnimationFrame(animate);
+          const t = clock.getElapsedTime();
+          torus.rotation.x += 0.005;
+          torus.rotation.y += 0.01;
+          core.rotation.x -= 0.008;
+          core.rotation.y -= 0.008;
+          coreWire.rotation.x -= 0.008;
+          coreWire.rotation.y -= 0.008;
+
+          const scale = 1 + Math.sin(t * 2) * 0.1;
+          core.scale.set(scale, scale, scale);
+          coreWire.scale.set(scale, scale, scale);
+
+          renderer.render(scene, camera);
+      }
+      animate();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      init3DBackground();
+      init3DLogo();
+    });
+
+    // --- Core Data Logic ---
+    let timelineEntries = [];
+    let currentActiveEntry = null;
+    let appChart = null;
+    let flatpickrInstance = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadTimelineData();
+      initializeCalendar();
+    });
+
+    function loadTimelineData() {
+      fetch('/api/timeline')
+        .then(response => response.json())
+        .then(data => {
+          timelineEntries = data;
+          document.getElementById('totalCapturesCount').textContent = timelineEntries.length;
+          if (timelineEntries.length > 0) {
+            loadStatsData();
+            document.getElementById('timelineViewerCard').style.display = 'block';
+            const slider = document.getElementById('timelineSlider');
+            slider.max = timelineEntries.length - 1;
+            slider.value = timelineEntries.length - 1;
+            slider.addEventListener('input', (e) => {
+              const index = timelineEntries.length - 1 - parseInt(e.target.value);
+              setActiveTimelineEntry(timelineEntries[index]);
+            });
+            setActiveTimelineEntry(timelineEntries[0]);
+          } else {
+            showEmptyState();
+          }
+        });
+    }
+
+    function setActiveTimelineEntry(entry) {
+      currentActiveEntry = entry;
+      document.getElementById('viewerImage').src = entry.image_path;
+      document.getElementById('activeAppLabel').textContent = entry.app || 'Unknown App';
+      document.getElementById('captureTimestamp').textContent = new Date(entry.timestamp * 1000).toLocaleString();
+      document.getElementById('captureTimeAgo').textContent = timeAgo(entry.timestamp);
+    }
+
+    function loadStatsData() {
+      fetch('/api/stats')
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('uniqueAppsCount').textContent = data.stats.length;
+          renderAppChart(data.stats);
+        });
+    }
+
+    function renderAppChart(statsList) {
+      const ctx = document.getElementById('appStatsChart').getContext('2d');
+      const labels = statsList.map(item => item.app);
+      const counts = statsList.map(item => item.count);
+      const colors = ['#00ffff', '#ff00ff', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6'];
+
+      if (appChart) appChart.destroy();
+      appChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: counts, backgroundColor: colors.slice(0, labels.length),
+            borderColor: '#030308', borderWidth: 2, hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { color: '#7dd3fc', font: { family: 'Orbitron', size: 10 }, padding: 15 } } }
+        }
+      });
+    }
+
+    function initializeCalendar() {
+      flatpickrInstance = flatpickr("#dateInput", {
+        dateFormat: "Y-m-d", theme: "dark",
+        onChange: function(selectedDates, dateStr) {
+          if (dateStr) filterTimelineByDate(dateStr);
+        }
+      });
+    }
+
+    function filterTimelineByDate(dateStr) {
+      const selectedDate = new Date(dateStr);
+      const filtered = timelineEntries.filter(entry => {
+        const entryDate = new Date(entry.timestamp * 1000);
+        return entryDate.getFullYear() === selectedDate.getFullYear() &&
+               entryDate.getMonth() === selectedDate.getMonth() &&
+               entryDate.getDate() === selectedDate.getDate();
+      });
+
+      if (filtered.length > 0) {
+        switchPanel('timeline');
+        const slider = document.getElementById('timelineSlider');
+        slider.max = filtered.length - 1;
+        slider.value = filtered.length - 1;
+        const newSlider = slider.cloneNode(true);
+        slider.parentNode.replaceChild(newSlider, slider);
+        newSlider.addEventListener('input', (e) => {
+          const index = filtered.length - 1 - parseInt(e.target.value);
+          setActiveTimelineEntry(filtered[index]);
+        });
+        setActiveTimelineEntry(filtered[0]);
+      } else {
+        alert("NO RECORDINGS FOUND FOR " + dateStr);
+        flatpickrInstance.clear();
+      }
+    }
+
+    function switchPanel(panelName) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+
+      if (panelName === 'timeline') {
+        document.getElementById('timelinePanel').classList.add('active');
+        document.querySelectorAll('.nav-item')[0].classList.add('active');
+        document.getElementById('mainHeading').textContent = "Timeline Overview";
+        document.getElementById('subHeading').textContent = "Explore your screen captures and timeline history.";
+        loadTimelineData();
+      } else if (panelName === 'search') {
+        document.getElementById('searchPanel').classList.add('active');
+        document.querySelectorAll('.nav-item')[1].classList.add('active');
+        document.getElementById('mainHeading').textContent = "Semantic Search";
+        document.getElementById('subHeading').textContent = "Query screenshots by OCR extracted text and tags.";
+        triggerSearch();
+      }
+    }
+
+    let searchTimeout = null;
+    function triggerSearch() {
+      const query = document.getElementById('searchInput').value;
+      if (searchTimeout) clearTimeout(searchTimeout);
+
+      searchTimeout = setTimeout(() => {
+        const url = query ? `/api/search?q=${encodeURIComponent(query)}` : '/api/timeline';
+        fetch(url).then(res => res.json()).then(data => { renderSearchResults(data, !!query); });
+      }, 300);
+    }
+
+    function renderSearchResults(data, isFiltered) {
+      const grid = document.getElementById('searchResultsGrid');
+      grid.innerHTML = '';
+
+      if (data.length === 0) {
+        grid.innerHTML = `
+          <div class="glass-panel no-history-state" style="grid-column: 1/-1;">
+            <div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>
+            <i class="bi bi-search"></i>
+            <h2>No matching results found</h2>
+            <p>Try searching for keywords present inside your apps or web pages.</p>
+          </div>
+        `;
+        return;
+      }
+
+      data.forEach(entry => {
+        const card = document.createElement('div');
+        card.className = 'glass-panel gallery-card';
+        let simBadge = '';
+        if (isFiltered && entry.similarity !== undefined) {
+          const score = Math.round(entry.similarity * 100);
+          simBadge = `<span class="similarity-badge"><i class="bi bi-graph-up"></i> ${score}% MATCH</span>`;
+        }
+
+        card.innerHTML = `
+          <div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>
+          <div class="gallery-img-container" onclick="openDetailsModalById(${entry.id})">
+            <img src="${entry.image_path}" alt="Screenshot">
+          </div>
+          <div class="gallery-actions">
+            <button class="btn-icon-danger" onclick="deleteEntry(${entry.timestamp}, event)"><i class="bi bi-trash"></i></button>
+          </div>
+          <div class="gallery-info">
+            <div class="gallery-meta">
+              <span class="gallery-app-tag">${entry.app || 'Unknown App'}</span>
+              <span>${timeAgo(entry.timestamp)}</span>
+            </div>
+            <div class="gallery-title" title="${entry.title || 'Untitled'}">${entry.title || 'Untitled'}</div>
+            ${simBadge}
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function openDetailsModal(entry) {
+      if (!entry) return;
+      document.getElementById('modalViewerImage').src = entry.image_path;
+      document.getElementById('modalAppTitle').textContent = entry.app || 'Unknown App';
+      document.getElementById('modalTimestamp').textContent = new Date(entry.timestamp * 1000).toLocaleString();
+      document.getElementById('modalOcrText').textContent = entry.text || 'No text recognized in this screenshot.';
+      document.getElementById('detailsModal').classList.add('active');
+    }
+
+    function openDetailsModalById(id) {
+      const entry = timelineEntries.find(e => e.id === id);
+      openDetailsModal(entry);
+    }
+
+    function closeDetailsModal() { document.getElementById('detailsModal').classList.remove('active'); }
+
+    function deleteCurrentEntry() {
+      if (!currentActiveEntry) return;
+      if (confirm("Delete this capture? This action is irreversible.")) {
+        deleteEntryApi(currentActiveEntry.timestamp);
+        closeDetailsModal();
+      }
+    }
+
+    function deleteEntry(timestamp, event) {
+      event.stopPropagation();
+      if (confirm("Delete this capture? This action is irreversible.")) deleteEntryApi(timestamp);
+    }
+
+    function deleteEntryApi(timestamp) {
+      fetch(`/api/delete/${timestamp}`, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(result => {
+          if (result.status === 'success') {
+            loadTimelineData();
+            if (document.getElementById('searchPanel').classList.contains('active')) triggerSearch();
+          } else { alert("ERROR DELETING: " + result.message); }
+        });
+    }
+
+    function showEmptyState() {
+      document.getElementById('timelineViewerCard').style.display = 'none';
+      const layout = document.querySelector('.dashboard-layout');
+      layout.innerHTML = `
+        <div class="glass-panel no-history-state" style="grid-column: 1/-1;">
+          <div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>
+          <i class="bi bi-camera-video-off"></i>
+          <h2>No captures recorded yet</h2>
+          <p>The background screenshot recording thread is active. Keep working on your computer, and your screen timeline will appear here shortly.</p>
+        </div>
+      `;
+    }
+
+    function timeAgo(timestamp) {
+      const seconds = Math.floor((new Date() - new Date(timestamp * 1000)) / 1000);
+      let interval = Math.floor(seconds / 31536000);
+      if (interval >= 1) return interval + " YEARS AGO";
+      interval = Math.floor(seconds / 2592000);
+      if (interval >= 1) return interval + " MONTHS AGO";
+      interval = Math.floor(seconds / 86400);
+      if (interval >= 1) return interval + " DAYS AGO";
+      interval = Math.floor(seconds / 3600);
+      if (interval >= 1) return interval + " HOURS AGO";
+      interval = Math.floor(seconds / 60);
+      if (interval >= 1) return interval + " MINUTES AGO";
+      return seconds < 10 ? "JUST NOW" : seconds + " SECONDS AGO";
+    }
+  </script>
+</body>
+</html>
