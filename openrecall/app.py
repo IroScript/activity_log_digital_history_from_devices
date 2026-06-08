@@ -330,6 +330,129 @@ app.jinja_env.filters["human_readable_time"] = human_readable_time
 app.jinja_env.filters["timestamp_to_human_readable"] = timestamp_to_human_readable
 
 
+def classify_activity(app_name, title, ocr_text):
+    """
+    Classify the activity based on the application name, window title, and OCR text.
+    Returns: (category, action_summary)
+    """
+    app_lower = (app_name or "").lower()
+    title_lower = (title or "").lower()
+    ocr_lower = (ocr_text or "").lower()
+
+    # 1. Chat / Communication
+    chat_apps = ["slack", "discord", "whatsapp", "teams", "messenger", "telegram", "skype", "zoom"]
+    chat_keywords = ["messenger.com", "whatsapp.com", "chat.openai.com", "claude.ai", "chatgpt", "gemini.google.com"]
+    if any(x in app_lower for x in chat_apps) or any(x in title_lower for x in chat_keywords):
+        summary = "Chatting / Communication"
+        if "messenger" in title_lower or "messenger" in app_lower:
+            summary = "Messaging on Messenger"
+        elif "whatsapp" in title_lower or "whatsapp" in app_lower:
+            summary = "Chatting on WhatsApp"
+        elif "slack" in title_lower or "slack" in app_lower:
+            summary = "Communicating on Slack"
+        elif "chatgpt" in title_lower or "chat.openai" in title_lower:
+            summary = "Conversing with ChatGPT"
+        elif "claude" in title_lower or "claude.ai" in title_lower:
+            summary = "Conversing with Claude AI"
+        elif "gemini" in title_lower or "gemini.google" in title_lower:
+            summary = "Conversing with Gemini AI"
+        return "Chatting", summary
+
+    # 2. Debugging / Bug Fixing
+    debug_keywords = [
+        "traceback (most recent call last):",
+        "exception:",
+        "syntaxerror:",
+        "typeerror:",
+        "keyerror:",
+        "indexerror:",
+        "valueerror:",
+        "uncaught exception",
+        "fatal error",
+        "npm err!",
+        "failed to compile",
+        "failed with exit code",
+        "assertionerror",
+        "stack trace",
+        "invalid syntax",
+        "deprecationwarning"
+    ]
+    if any(x in ocr_lower for x in debug_keywords) or "devtools" in title_lower or "debugger" in title_lower:
+        summary = "Debugging and fixing errors"
+        if "." in title:
+            parts = title.split()
+            for part in parts:
+                if "." in part and part.split(".")[-1] in ["py", "js", "html", "css", "json", "go", "rs", "cpp", "c", "sh"]:
+                    summary = f"Debugging errors in {part}"
+                    break
+        return "Debugging", summary
+
+    # 3. Coding / Development
+    code_editors = ["code", "pycharm", "cursor", "sublime", "notepad++", "intellij", "eclipse", "neovim", "vim", "emacs", "windsurf"]
+    code_extensions = [".py", ".html", ".js", ".css", ".jsx", ".tsx", ".json", ".go", ".rs", ".cpp", ".c", ".h", ".sh", ".yaml", ".yml", ".md"]
+    terminal_apps = ["cmd", "powershell", "bash", "zsh", "terminal", "wt.exe", "conhost"]
+    
+    is_editor = any(x in app_lower for x in code_editors) or any(x in title_lower for x in code_editors)
+    is_terminal = any(x in app_lower for x in terminal_apps)
+    has_code_file = any(ext in title_lower for ext in code_extensions)
+    has_code_keywords = any(kw in ocr_lower for kw in ["def ", "import ", "const ", "let ", "function", "class ", "return ", "public static void", "git commit", "git push", "npm run"])
+
+    if is_editor or (is_terminal and has_code_keywords) or (has_code_file and (is_editor or is_terminal or has_code_keywords)):
+        filename = "codebase"
+        for part in title.split():
+            clean_part = part.strip("● \u25cf*")
+            if "." in clean_part and clean_part.split(".")[-1] in ["py", "js", "html", "css", "json", "jsx", "tsx", "go", "rs", "cpp", "c", "sh", "md"]:
+                filename = clean_part
+                break
+        return "Coding", f"Writing code in {filename}"
+
+    # 4. Research / Searching
+    search_keywords = ["google search", "google.com/search", "bing.com/search", "duckduckgo.com", "yahoo.com/search"]
+    is_search = any(x in title_lower for x in ["google search", "bing search"]) or any(x in ocr_lower for x in search_keywords)
+    is_tech_site = any(x in title_lower or x in ocr_lower for x in ["stackoverflow.com", "stack overflow", "github.com", "w3schools", "developer.mozilla", "medium.com"])
+    
+    if is_search:
+        query = "something"
+        for sep in ["- Google Search", "- Bing", "- DuckDuckGo"]:
+            if sep in title:
+                query = title.split(sep)[0].strip()
+                break
+        return "Researching", f"Searching for: \"{query}\""
+    elif is_tech_site:
+        if "stackoverflow" in title_lower:
+            return "Researching", "Researching on Stack Overflow"
+        elif "github" in title_lower:
+            repo_name = "GitHub"
+            if "/" in title:
+                parts = title.split()
+                for p in parts:
+                    if "/" in p:
+                        repo_name = p
+                        break
+            return "Researching", f"Browsing GitHub repo: {repo_name}"
+        else:
+            return "Researching", "Researching technical topics"
+
+    # 5. Browsing / Entertainment
+    ent_keywords = ["youtube.com", "youtube", "netflix.com", "netflix", "facebook.com", "twitter.com", "x.com", "reddit.com", "reddit", "instagram"]
+    if any(x in title_lower for x in ent_keywords) or any(x in app_lower for x in ["spotify", "vlc", "netflix"]):
+        summary = "Browsing social media / Entertainment"
+        if "youtube" in title_lower:
+            video_title = title.replace("- YouTube", "").strip()
+            summary = f"Watching YouTube: \"{video_title}\""
+        elif "facebook" in title_lower:
+            summary = "Browsing Facebook Feed"
+        elif "reddit" in title_lower:
+            summary = "Reading Reddit threads"
+        return "Browsing", summary
+
+    if title:
+        short_title = title[:40] + "..." if len(title) > 40 else title
+        return "General Work", f"Active in {short_title}"
+    
+    return "General Work", "Active on desktop"
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -346,12 +469,15 @@ def api_timeline():
     
     entries = []
     for row in results:
+        category, action_summary = classify_activity(row[1], row[2], row[3])
         entries.append({
             "id": row[0],
             "app": row[1],
             "title": row[2],
             "text": row[3],
             "timestamp": row[4],
+            "category": category,
+            "action_summary": action_summary,
             "image_path": f"/static/{row[4]}.webp"
         })
     return jsonify(entries)
@@ -444,6 +570,77 @@ def api_search():
         )
 
     return jsonify(entries)
+
+
+@app.route("/api/activity_sessions")
+def api_activity_sessions():
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+    # Fetch all entries sorted by timestamp ascending so we can process chronologically
+    results = c.execute(
+        "SELECT app, title, text, timestamp FROM entries ORDER BY timestamp ASC"
+    ).fetchall()
+    conn.close()
+    
+    if not results:
+        return jsonify([])
+        
+    sessions = []
+    current_session = None
+    
+    for row in results:
+        app_name, title, text, timestamp = row
+        category, summary = classify_activity(app_name, title, text)
+        
+        # We group into the same session if:
+        # 1. Current session exists
+        # 2. Category is the same
+        # 3. The time difference is less than 5 minutes (300 seconds)
+        if current_session and current_session["category"] == category and (timestamp - current_session["last_timestamp"]) <= 300:
+            current_session["end_timestamp"] = timestamp
+            current_session["last_timestamp"] = timestamp
+            current_session["duration_seconds"] = current_session["end_timestamp"] - current_session["start_timestamp"]
+            if len(summary) > len(current_session["summary"]):
+                current_session["summary"] = summary
+        else:
+            if current_session:
+                sessions.append(current_session)
+                
+            current_session = {
+                "category": category,
+                "summary": summary,
+                "start_timestamp": timestamp,
+                "end_timestamp": timestamp,
+                "last_timestamp": timestamp,
+                "duration_seconds": 0
+            }
+            
+    if current_session:
+        sessions.append(current_session)
+        
+    formatted_sessions = []
+    import datetime
+    
+    for s in reversed(sessions):
+        dur_mins = max(1, round(s["duration_seconds"] / 60))
+        duration_str = f"{dur_mins} min" if dur_mins == 1 else f"{dur_mins} mins"
+        
+        dt_start = datetime.datetime.fromtimestamp(s["start_timestamp"])
+        dt_end = datetime.datetime.fromtimestamp(s["end_timestamp"])
+        
+        formatted_sessions.append({
+            "category": s["category"],
+            "summary": s["summary"],
+            "start_time": dt_start.strftime("%I:%M %p"),
+            "end_time": dt_end.strftime("%I:%M %p"),
+            "date": dt_start.strftime("%Y-%m-%d"),
+            "duration": duration_str,
+            "duration_seconds": s["duration_seconds"],
+            "start_timestamp": s["start_timestamp"],
+            "end_timestamp": s["end_timestamp"]
+        })
+        
+    return jsonify(formatted_sessions)
 
 
 @app.route("/static/<filename>")

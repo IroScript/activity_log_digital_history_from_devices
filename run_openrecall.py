@@ -15,6 +15,9 @@ try:
         except ImportError:
             pass
             
+    import openrecall
+    print("=" * 60)
+    print(f"Using openrecall package from: {openrecall.__file__}")
     from openrecall.app import app, create_db, record_screenshot_thread
     
     print("=" * 60)
