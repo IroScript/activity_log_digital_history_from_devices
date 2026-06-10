@@ -382,6 +382,132 @@
       100% { transform: rotate(360deg); }
     }
 
+    /* ─── Detail Points Expandable Section ─── */
+    .activity-expand-btn {
+      background: transparent;
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      color: var(--accent-cyan);
+      font-family: inherit;
+      font-size: 0.7rem;
+      padding: 5px 12px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .activity-expand-btn:hover {
+      background: rgba(0, 255, 255, 0.1);
+      box-shadow: var(--glow-cyan);
+    }
+    .activity-expand-btn.active {
+      border-color: var(--accent-fuchsia);
+      color: var(--accent-fuchsia);
+      background: rgba(255, 0, 255, 0.05);
+    }
+    .activity-expand-btn i {
+      transition: transform 0.3s;
+    }
+    .activity-expand-btn.active i {
+      transform: rotate(180deg);
+    }
+
+    .detail-points-container {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+      opacity: 0;
+      margin-top: 0;
+    }
+    .detail-points-container.expanded {
+      max-height: 2000px;
+      opacity: 1;
+      margin-top: 20px;
+    }
+
+    .detail-points-list {
+      list-style: none;
+      padding: 0 0 0 20px;
+      margin: 0;
+      border-left: 2px solid rgba(0, 255, 255, 0.15);
+      position: relative;
+    }
+
+    .detail-point-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 10px 0 10px 20px;
+      position: relative;
+      font-size: 0.82rem;
+      color: var(--text-primary);
+      letter-spacing: 0.3px;
+      line-height: 1.5;
+      transition: all 0.2s;
+    }
+    .detail-point-item:hover {
+      background: rgba(0, 255, 255, 0.03);
+    }
+    .detail-point-item::before {
+      content: '';
+      position: absolute;
+      left: -7px;
+      top: 16px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--bg-primary);
+      border: 2px solid var(--accent-cyan);
+      box-shadow: 0 0 6px rgba(0, 255, 255, 0.3);
+      z-index: 1;
+    }
+    .detail-point-item:nth-child(even)::before {
+      border-color: var(--accent-fuchsia);
+      box-shadow: 0 0 6px rgba(255, 0, 255, 0.3);
+    }
+
+    .detail-point-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+      min-width: 22px;
+      text-align: center;
+    }
+
+    .detail-point-content {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex-grow: 1;
+    }
+    .detail-point-action {
+      color: #e0f2fe;
+      font-weight: 500;
+    }
+    .detail-point-time {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .detail-frame-count {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+    .detail-frame-count i {
+      color: var(--accent-fuchsia);
+      text-shadow: var(--glow-fuchsia);
+    }
+
   </style>
 </head>
 <body>
@@ -852,37 +978,96 @@
         return;
       }
       
-      sessions.forEach(s => {
+      sessions.forEach((s, sessionIdx) => {
         const card = document.createElement('div');
         const catClass = 'cat-' + s.category.toLowerCase().replace(/[^a-z0-9]/g, '');
         card.className = `glass-panel activity-card ${catClass}`;
+        card.style.flexDirection = 'column';
+        card.style.gap = '0';
+        
+        const detailPoints = s.detail_points || [];
+        const frameCount = s.frame_count || 0;
+        const cardId = `session-${sessionIdx}`;
+        
+        // Build detail points HTML
+        let detailPointsHtml = '';
+        if (detailPoints.length > 0) {
+          detailPointsHtml = '<ol class="detail-points-list">';
+          detailPoints.forEach(p => {
+            detailPointsHtml += `
+              <li class="detail-point-item">
+                <span class="detail-point-icon">${p.icon || '📌'}</span>
+                <div class="detail-point-content">
+                  <span class="detail-point-action">${p.action}</span>
+                  <span class="detail-point-time"><i class="bi bi-clock" style="font-size: 0.6rem;"></i> ${p.time}</span>
+                </div>
+              </li>
+            `;
+          });
+          detailPointsHtml += '</ol>';
+        }
         
         card.innerHTML = `
           <div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>
-          <div class="activity-indicator"></div>
-          <div class="activity-details">
-            <div class="activity-meta-row">
-              <span class="activity-category-badge">${s.category}</span>
-              <span class="activity-time-duration">
-                <i class="bi bi-clock-history"></i> ${s.start_time} - ${s.end_time} (${s.duration})
-              </span>
+          <div style="display: flex; align-items: center; gap: 25px; padding: 24px;">
+            <div class="activity-indicator"></div>
+            <div class="activity-details">
+              <div class="activity-meta-row">
+                <span class="activity-category-badge">${s.category}</span>
+                <span class="activity-time-duration">
+                  <i class="bi bi-clock-history"></i> ${s.start_time} - ${s.end_time} (${s.duration})
+                </span>
+              </div>
+              <div class="activity-header">${s.summary}</div>
             </div>
-            <div class="activity-header">${s.summary}</div>
+            ${detailPoints.length > 0 ? `
+              <button class="activity-expand-btn" id="expand-btn-${cardId}" onclick="event.stopPropagation(); toggleDetailPoints('${cardId}')">
+                <span>${detailPoints.length} details</span>
+                <i class="bi bi-chevron-down"></i>
+              </button>
+            ` : ''}
+            ${frameCount > 0 ? `
+              <span class="detail-frame-count">
+                <i class="bi bi-layers"></i> ${frameCount} frames
+              </span>
+            ` : ''}
+          </div>
+          <div class="detail-points-container" id="details-${cardId}">
+            <div style="padding: 0 24px 24px 60px;">
+              ${detailPointsHtml}
+            </div>
           </div>
         `;
         
-        // Make it clickable to zoom in on the start of that activity if desired
-        card.style.cursor = 'pointer';
-        card.addEventListener('click', () => {
-          // Find the nearest entry and open details modal
-          fetch(`/api/timeline`).then(res => res.json()).then(entries => {
-            const match = entries.find(e => e.timestamp >= s.start_timestamp && e.timestamp <= s.end_timestamp);
-            if (match) openDetailsModal(match);
+        // Make the main area (not the expand button) clickable for screenshot modal
+        const mainArea = card.querySelector('.activity-details');
+        if (mainArea) {
+          mainArea.style.cursor = 'pointer';
+          mainArea.addEventListener('click', () => {
+            fetch(`/api/timeline`).then(res => res.json()).then(entries => {
+              const match = entries.find(e => e.timestamp >= s.start_timestamp && e.timestamp <= s.end_timestamp);
+              if (match) openDetailsModal(match);
+            });
           });
-        });
+        }
         
         container.appendChild(card);
       });
+    }
+
+    function toggleDetailPoints(cardId) {
+      const container = document.getElementById(`details-${cardId}`);
+      const btn = document.getElementById(`expand-btn-${cardId}`);
+      if (!container || !btn) return;
+      
+      const isExpanded = container.classList.contains('expanded');
+      if (isExpanded) {
+        container.classList.remove('expanded');
+        btn.classList.remove('active');
+      } else {
+        container.classList.add('expanded');
+        btn.classList.add('active');
+      }
     }
 
     let searchTimeout = null;

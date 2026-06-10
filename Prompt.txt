@@ -1,0 +1,47 @@
+C:\Users\Irak\Desktop\AI_Agent\DigitalHistory\ChatHistory.txt
+
+ei file e gemini er sathe ami je chat koresi,,,,,
+
+sekhane eita strictly bola je kono extrnal vision model lagbe naa...
+
+open recall itself is dangerously powerfull app...
+
+It can detect what a user is actually doing cause it just doest take a title bar of window,,,,,rther it takes whole window captured....
+
+
+bishoyta holo,,,,,amake ei screenshot plus database gulo delete kore felte hobe kono eksomoy after 1 month cause database vaari hobe, screen shot beshi hobe,,,,
+
+
+so ei log gulo aar paoa somvob noy...
+
+
+tai aami eita clearly bolte chai je amar actiity ta in  details lagbe, jaate porobortite database, screenshot delete korteo kono osubidha naa hoy...
+
+
+
+aami chat e ejonno clearly bolei diyechhi je, lets say ekta user 10 second pichhone gelo in youtube ,,,,,,eita detect korte sokkhom karon embeddings gulo to eikhanei achhe
+
+ebong se user ki comment e like dilo, eitao embeddings vector theke paoa somvob....
+
+se jodi facebook chalay kon post e like dilo? seta kon id? er post? shudhu generalised bolle hobe na je se facebook chalacchilo eita asole kono mean kore na bolte gele ekta nonsense bepar,,,,borong bolte hobe se omuk group e ekta post dise,,,,,,,omuk helpline page e giye omuk person er comment reply dise,,,,,eita thik evabei chai,,,,,
+
+
+jemon eikhne lokkho koro ekta activity log e dekhlam ami expense sheet e achhi which is nonsese,,,,,ami asole, Expense workbook er TASKLIST naamok sheet e chhilam,,,,,sekhane ki korsilam? sekhane tasklist entry dissilam manually.....abar expense sheet e switch back kore ami taka entry dilam,,,,,to ami ki ki khoroch korlam eita embedding theke obossoi paoa somvob......even ki ki tasklist entry disi eitao paoa somvob......
+
+
+
+
+
+
+jaihok,
+
+I hope ami tomake bujhate peresi ami only title chai naa,,,,borong oi kaaj tar kompokkhe 10 ta point chai,,,,je exactly ki korsilam aami oi time e.......not just title only
+
+
+
+
+
+
+
+
+
