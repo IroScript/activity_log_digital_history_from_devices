@@ -636,14 +636,29 @@
       <div class="glass-panel" style="padding: 40px; border-color: var(--accent-fuchsia); box-shadow: var(--glow-fuchsia);">
         <div class="corner-tl"></div><div class="corner-tr"></div><div class="corner-bl"></div><div class="corner-br"></div>
         <h2 style="font-size: 1.5rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px; color: #fff; text-shadow: var(--glow-fuchsia); display: flex; align-items: center; gap: 15px;">
-          <i class="bi bi-robot" style="color: var(--accent-fuchsia); text-shadow: var(--glow-fuchsia);"></i> Local AI Critic
+          <i class="bi bi-robot" style="color: var(--accent-fuchsia); text-shadow: var(--glow-fuchsia);"></i> AI Critic (Groq Vision)
         </h2>
-        <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; margin-bottom: 30px; letter-spacing: 0.5px;">
-          আপনার সাম্প্রতিক কার্যক্রম এবং স্ক্রিনশট বিশ্লেষণ করে স্থানীয় বুদ্ধিমান মডেল দ্বারা প্রস্তুত একটি প্রফেশনাল ও মজার ক্রিটিক্যাল রিপোর্ট দেখুন।
+        <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px; letter-spacing: 0.5px;">
+          Select a time window or the maximum number of frames to analyze. The Groq model (openai/gpt-oss-120b) will generate 10 critical questions based on your workflow.
         </p>
+
+        <div style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 0.8rem; color: var(--accent-cyan); text-transform: uppercase;">Start Time</label>
+            <input type="datetime-local" id="criticStartTime" style="background: rgba(0,0,0,0.5); border: 1px solid var(--accent-cyan); color: #fff; padding: 10px; font-family: inherit; outline: none;">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 0.8rem; color: var(--accent-cyan); text-transform: uppercase;">End Time</label>
+            <input type="datetime-local" id="criticEndTime" style="background: rgba(0,0,0,0.5); border: 1px solid var(--accent-cyan); color: #fff; padding: 10px; font-family: inherit; outline: none;">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 0.8rem; color: var(--accent-fuchsia); text-transform: uppercase;">Max Frames</label>
+            <input type="number" id="criticMaxFrames" value="5" min="1" max="10" style="background: rgba(0,0,0,0.5); border: 1px solid var(--accent-fuchsia); color: #fff; padding: 10px; font-family: inherit; outline: none; width: 100px;">
+          </div>
+        </div>
         
-        <button onclick="generateCritic()" class="btn-danger-outline" style="border-color: var(--accent-fuchsia); color: var(--accent-fuchsia); box-shadow: inset 0 0 10px rgba(255, 0, 255, 0.1); font-size: 1rem; padding: 15px 35px; width: fit-content; display: flex; align-items: center; gap: 12px; transition: all 0.3s; margin-top: 20px;">
-          <i class="bi bi-play-circle-fill"></i> Generate Workflow Critique
+        <button onclick="generateCritic()" class="btn-danger-outline" style="border-color: var(--accent-fuchsia); color: var(--accent-fuchsia); box-shadow: inset 0 0 10px rgba(255, 0, 255, 0.1); font-size: 1rem; padding: 15px 35px; width: fit-content; display: flex; align-items: center; gap: 12px; transition: all 0.3s;">
+          <i class="bi bi-play-circle-fill"></i> Generate Critique
         </button>
 
         <div id="criticLoader" style="display: none; margin-top: 40px; text-align: center;">
@@ -1242,18 +1257,39 @@
     function generateCritic() {
       const loader = document.getElementById('criticLoader');
       const result = document.getElementById('criticResult');
+      const startTime = document.getElementById('criticStartTime').value;
+      const endTime = document.getElementById('criticEndTime').value;
+      const maxFrames = document.getElementById('criticMaxFrames').value;
       
       loader.style.display = 'block';
       result.style.display = 'none';
       result.innerHTML = '';
       
-      fetch('/api/ai_critic')
+      let start_ts = null;
+      let end_ts = null;
+      if (startTime) start_ts = Math.floor(new Date(startTime).getTime() / 1000);
+      if (endTime) end_ts = Math.floor(new Date(endTime).getTime() / 1000);
+
+      fetch('/api/ai_critic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start_time: start_ts,
+          end_time: end_ts,
+          max_frames: parseInt(maxFrames) || 5
+        })
+      })
         .then(res => res.json())
         .then(data => {
           loader.style.display = 'none';
           if (data.status === 'success') {
             result.style.display = 'block';
-            result.innerHTML = data.critic;
+            // Simple markdown-like replacement
+            let formatted = data.critic.replace(/### (.*?)\n/g, '<h3>$1</h3>\n');
+            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            formatted = formatted.replace(/\*(.*?)\n/g, '<li>$1</li>\n');
+            formatted = formatted.replace(/\n/g, '<br>');
+            result.innerHTML = formatted;
           } else {
             result.style.display = 'block';
             result.innerHTML = `<p style="color: #ef4444; font-weight: bold;">ERROR: ${data.message}</p>`;
@@ -1262,7 +1298,7 @@
         .catch(err => {
           loader.style.display = 'none';
           result.style.display = 'block';
-          result.innerHTML = `<p style="color: #ef4444; font-weight: bold;">CONNECTION ERROR: Make sure the server and Ollama are running.</p>`;
+          result.innerHTML = `<p style="color: #ef4444; font-weight: bold;">CONNECTION ERROR: Make sure the server is running.</p>`;
         });
     }
   </script>

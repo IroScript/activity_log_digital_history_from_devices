@@ -1,0 +1,57 @@
+never gitpush from yourself,,,,untile i say you....cause the final output need human veification like me
+
+arekta sompurok question,,,,ami majhe majhe dekhi bairer file edit hosse,,,,sob ki github e push hosse? maane ami next e paabo egulo jodi gitclone kori?
+
+
+ekta example nilam....
+amar comment ///comment eivabe dibo maane 3 ta slash thakle bujhbe eita amar nijer commment ebong tripple slash diye shesh hobe/// end of comment
+
+
+
+
+General Work
+02:18 PM - 02:19 PM (1 min)
+Active in Sent (575 unread) - irak.alco@yahoo.com ...///eita thik ase,,,,,kintu aager situation theke khub ekta improvement dekhlam naa......eikhane may be only title dekha hoise......good.....eikhane only ekta screenshot dekhe eita bojhar upay nei je asolei mail e  ki korsilam.........may be next othoba aro 5/6 ta scrren shot er pore hoytoba dekha jaabe aami depot head der mail pathassilam...
+
+Ki mail pathassilam, aro koyekta scrrenshot pore nischoi thakbe je ami taader dreamapps company software er mpo, fm code bosate ekta google sheet pathiyechhilam seitate taderke bosate bolsilam mpo, fm code gulo
+
+12 details
+7 frames
+💻
+Opened "codebase" in code editor (lines 0-575) ///dekho ami nije coder naa.....ami ai coding tool diye kaaj kori......to bishoyta holo eitai je ai coding tool aager screen shot e besh kisu text generate korese at the most right side chat baar,,,,,,,porer screen shot e dekha jaabe aro text, code generate korse,,,,,porer screen shot e dekha jaabe kisu file generate korese.....egulo title bar e thaake,,,,,chat interface e thake......egulor kono details nei,,,,borong eita dekhle bojha jaay je ami nije bodhhoy code likhsi....but ai generate korse,,,,screen shot e beshi text dekha jasse porer scrren shot e seita dekhe bujhbe///
+
+
+ 02:18:20 PM
+⚙️
+Working on: premium ///eita add chhilo kina mone nei, popup, baa add, ba eisob thakleo properly detect korbe///
+ 02:18:50 PM
+⌨️
+Ran command: ls to //eita ai korse, aami naa///
+ 02:18:50 PM
+⌨️
+Ran command: LS indows. //eita ai korse, aami naa///
+ 02:19:03 PM
+📜
+Scrolled to lines 0-2025 in code  //eita ai korse, kingba ami korle just scrolled koresi///
+ 02:19:03 PM
+⌨️
+Ran command: LS tol  //eita ai korse, aami naa///
+ 02:19:08 PM
+📜
+Scrolled to lines 0-575 in code  //eita ai korse, aami naa///
+ 02:19:08 PM
+⏱️
+Total session duration: 48s (7 frames captured) ///eikhane from time to end time thakle aro valo hoto///
+ 02:19:08 PM
+📦
+Imports/dependencies used: premium, ///eita mone nei///
+ 02:18:50 PM
+🪟
+Window titles during session: Sent (575 unread) - irak.alco@yahoo.com - Yahoo Mail - Googl, (575 unread) - irak.alco@yahoo.com - Yahoo Mail - Google Chr ///eitar bepare upore bollam///
+ 02:18:20 PM
+📱
+Applications used: chrome.exe ///eita useless, chrome open chiilo eita ki kono meaning daar koray? Nothing,,,,,jodi chrome e blank page o open thake tobe seita bolte hobe je chrome e blank page opened///
+ 02:18:20 PM
+📝
+Total OCR text captured: ~8,060 characters across 7 frames ///well this info can be here, no matter///
+ 02:18:20 PM

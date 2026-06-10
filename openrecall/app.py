@@ -570,16 +570,37 @@ def export_last_5():
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route("/api/ai_critic")
+@app.route("/api/ai_critic", methods=["GET", "POST"])
 def api_critic():
+    import requests
+    import base64
+    import json
+    
     try:
+        # Read API key
+        try:
+            with open(r"C:\Users\Irak\Desktop\AI_Agent\DigitalHistory\groqapi.txt", "r") as f:
+                api_key = f.read().strip().replace('"', '').replace(',', '')
+        except Exception as e:
+            return jsonify({"status": "error", "message": "API key file not found: " + str(e)}), 500
+
+        payload_json = request.get_json() if request.is_json else {}
+        start_time = payload_json.get("start_time")
+        end_time = payload_json.get("end_time")
+        max_frames = payload_json.get("max_frames", 5)
+
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
-        results = c.execute(
-            "SELECT app, title, text, timestamp FROM entries ORDER BY timestamp DESC LIMIT 7"
-        ).fetchall()
+        
+        if start_time and end_time:
+            results = c.execute(
+                "SELECT timestamp, app, title, text FROM entries WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT ?",
+                (start_time, end_time, max_frames)
+            ).fetchall()
+        else:
+            results = c.execute(
+                "SELECT timestamp, app, title, text FROM entries ORDER BY timestamp DESC LIMIT ?", (max_frames,)
+            ).fetchall()
         conn.close()
 
         if not results:
@@ -588,58 +609,64 @@ def api_critic():
                 "critic": "<p>কোনো কার্যক্রম পাওয়া যায়নি। প্রথমে কিছু সময় কম্পিউটারে কাজ করুন যাতে ওপেনরিকল আপনার অ্যাক্টিভিটি ক্যাপচার করতে পারে।</p>"
             })
 
-        # Return the structured developer critique as a static mock response
-        critic_text = """
-        <p><strong>১. আপনি কীভাবে চিন্তা করেছেন?</strong><br>
-        স্ক্রিনশট অনুযায়ী আপনার চিন্তা ছিল <strong>"কুইক ডেমো ও প্রুফ অফ কনসেপ্ট"</strong> ভিত্তিক। আপনি কোডের জটিল গভীরে না গিয়ে সরাসরি দেখতে চেয়েছেন যে এআই দিয়ে তৈরি বা ফিক্স করা কোডটি কাজ করে কি না। টাইমলাইনের এরর মেসেজ এবং চ্যাট উইন্ডোতে এআই-এর দেওয়া নির্দেশনাবলী এক স্ক্রিনে রেখে আপনি মূলত একটি কার্যকরী সমাধানের সূত্র খুঁজছিলেন।</p>
+        workflow_text = "Here is the chronological OCR text and window titles of my workflow:\n\n"
+        for row in reversed(results):
+            ts = row[0]
+            app_name = row[1] or "Unknown App"
+            title = row[2] or "Unknown Window"
+            ocr_text = row[3] or ""
+            workflow_text += f"--- Time: {ts} ---\nApp: {app_name}\nWindow Title: {title}\nScreen Text/OCR:\n{ocr_text}\n\n"
 
-        <p><strong>২. আপনি কীভাবে কাজটা করলেন?</strong><br>
-        আপনি কাজটি করেছেন <strong>"সুপারভাইজার বা ইন্টিগ্রেটর"</strong> হিসেবে। আপনি নিজে কোনো ফাইল ক্রিয়েট বা রান করার জন্য উইন্ডো মিনিমাইজ করেননি, বরং একই উইন্ডোর ভেতরে একদিকে এআই-এর ফিক্স করা কোড (সেন্টার প্যানেল) এবং অন্যদিকে চ্যাট উইন্ডো (ডান প্যানেল) খোলা রেখে পুরো কাজের একটা ইন্টারঅ্যাক্টিভ রিভিউ করছেন।</p>
+        prompt_text = (
+            "Analyze my workflow based on the following timeline of window titles and on-screen text.\n"
+            "Please provide a critical analysis of my workflow based on what you see, similar to a strict supervisor who asks critical questions about my actions. Format your response exactly like this in English (HTML format string):\n\n"
+            "<p><strong>1. How did you think about this?</strong><br>[Your answer]</p>\n"
+            "<p><strong>2. How did you do this task?</strong><br>[Your answer]</p>\n"
+            "<p><strong>3. What exactly are you doing here? Are you waiting for an AI or code editor reply?</strong><br><ul><li><strong>What you are doing:</strong> [Your answer]</li><li><strong>Waiting or not:</strong> [Your answer]</li></ul></p>\n"
+            "<hr style=\"border-color: rgba(255, 0, 255, 0.2); margin: 25px 0;\">\n"
+            "<p style=\"color: var(--accent-fuchsia); font-weight: bold; text-shadow: var(--glow-fuchsia); text-transform: uppercase; letter-spacing: 1px;\">10 Critical Questions and Answers based on the workflow:</p>\n"
+            "<p><strong>Question 1: [Question]</strong><br><strong>Answer:</strong> [Answer]</p>\n"
+            "... up to 10 questions. Ensure everything is in English. Do NOT use markdown codeblocks for HTML, just return raw HTML.\n\n"
+            f"{workflow_text}"
+        )
 
-        <p><strong>৩. আপনি এখানে কী কী করছেন? আপনি কি এআই বা কোড এডিটরের রিপ্লাইয়ের জন্য অপেক্ষা করছেন?</strong><br>
-        <ul>
-        <li><strong>যা করছেন:</strong> আপনি রান করার জন্য রেডি করা পাইথন ফাইলটি এডিটরে ওপেন করে রেখেছেন। চ্যাট উইন্ডোতে এআই-এর শেষ ইন্সট্রাকশনটি স্ক্রিনশট নেওয়ার সময় স্ক্রিনে ভিজিবল ছিল।</li>
-        <li><strong>অপেক্ষা করছেন কি না:</strong> হ্যাঁ, স্ক্রিনশটের চ্যাট বারের নিচের অংশে দেখা যাচ্ছে এআই জেনারেট করা শেষ টেক্সটের পর ইনপুট কার্সরটি ব্লিংক করছে এবং স্ক্রিনের নিচে কোনো একটি কমান্ড এক্সিকিউট হওয়া বা এআই-এর রেসপন্সের অপেক্ষা করার একটি স্টেডি ভাব রয়েছে। আপনি মূলত এআই যা বলেছে (যেমন: <code>python run_openrecall.py</code> রান করা এবং ডাটাবেজ ফিক্সের প্রমাণ) তা আপনার এডিটরের ফাইলের সাথে মিলিয়ে দেখছেন।</li>
-        </ul></p>
+        messages = [
+            {
+                "role": "user",
+                "content": prompt_text
+            }
+        ]
 
-        <hr style="border-color: rgba(255, 0, 255, 0.2); margin: 25px 0;">
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
 
-        <p style="color: var(--accent-fuchsia); font-weight: bold; text-shadow: var(--glow-fuchsia); text-transform: uppercase; letter-spacing: 1px;">স্ক্রিনশটটির ওপর ভিত্তি করে ১০টি ব্যক্তিগত সমালোচনামূলক প্রশ্ন ও উত্তর:</p>
+        data = {
+            "model": "openai/gpt-oss-120b",
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 2048
+        }
 
-        <p><strong>প্রশ্ন ১: আপনি কি নিজে কোনো এরর ফিক্সিং ট্রাই না করে পুরোপুরি এআই-এর ওপর নির্ভরশীল হয়ে পড়েছেন?</strong><br>
-        <strong>উত্তর:</strong> স্ক্রিনশট তাই বলে। ডান পাশের চ্যাটে ডাটাবেজ টেবিল মিসিং হওয়ার যে সমস্যা দেখা যাচ্ছে, তা আপনি নিজে কোনো কুয়েরি না লিখে বা ডিবাগ না করে সরাসরি এআই-এর তৈরি করা <code>init_openrecall_db.py</code> স্ক্রিপ্ট দিয়ে ফিক্স করিয়েছেন।</p>
+        resp = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=data)
+        if resp.status_code == 200:
+            result_json = resp.json()
+            critic_text = result_json["choices"][0]["message"]["content"]
+            
+            # Remove markdown code block if the AI wrapped it
+            if critic_text.startswith("```html"):
+                critic_text = critic_text[7:]
+            if critic_text.endswith("```"):
+                critic_text = critic_text[:-3]
+                
+            return jsonify({
+                "status": "success",
+                "critic": critic_text.strip()
+            })
+        else:
+            return jsonify({"status": "error", "message": f"Groq API Error: {resp.text}"}), 500
 
-        <p><strong>প্রশ্ন ২: আপনি কি কোডের সিকিউরিটি বা এক্সেপশন হ্যান্ডলিং নিয়ে উদাসীন?</strong><br>
-        <strong>উত্তর:</strong> কিছুটা। এডিটর প্যানেলে দেখা যাচ্ছে <code>except Exception as e:</code> ব্লকে জাস্ট <code>traceback.print_exc()</code> করে রাখা হয়েছে। প্রোডাকশন লেভেলের কাজের চেয়ে আপনার ফোকাস শুধু "অ্যাপ্লিকেশনটি যেন কোনোমতে রান করে" সেটার ওপর।</p>
-
-        <p><strong>প্রশ্ন ৩: স্ক্রিনে এআই চ্যাট এবং কোড একই সাথে রাখার উদ্দেশ্য কি বিভ্রান্তি এড়ানো, নাকি আপনার মনোযোগের অভাব?</strong><br>
-        <strong>উত্তর:</strong> এটি বিভ্রান্তি এড়ানোর জন্য। আপনি এডিটরের কোড এবং ডানপাশের চ্যাটের সাজেশন একই সাথে মিলিয়ে দেখছেন যাতে কোনো ফাইল এডিটিং বা কমান্ডের ভুল না হয়। তবে এটি আপনার দ্রুত কাজ শেষ করার ব্যাকুলতাকেও নির্দেশ করে।</p>
-
-        <p><strong>প্রশ্ন ৪: আপনি কি ব্যাকগ্রাউন্ড সার্ভারের অ্যাক্টিভিটি না বুঝেই অন্ধভাবে কোড রান করতে চাচ্ছেন?</strong><br>
-        <strong>উত্তর:</strong> হ্যাঁ। এডিটর স্ক্রিনে Flask অ্যাপের পোর্ট ৫০০০ ও হোস্ট <code>127.0.0.1</code> কনফিগার করা আছে। আপনি চ্যাট গাইডের ৩ নম্বর পয়েন্ট দেখে সরাসরি রান করতে চাচ্ছেন, পোর্টটি অলরেডি অন্য কোনো প্রসেসে ব্লকড কি না তা চেক না করেই।</p>
-
-        <p><strong>প্রশ্ন ৫: আপনার কাজের ফোল্ডারে মাত্র ৩টি ফাইল দেখা যাচ্ছে। আপনি কি বড় কোনো আর্কিটেকচারাল প্যাটার্ন এড়িয়ে শর্টকাট খুঁজছেন?</strong><br>
-        <strong>উত্তর:</strong> স্ক্রিনশট অনুযায়ী আপনি একটি খুব সাধারণ স্ক্রিপ্ট স্ট্রাকচারের সাহায্যে পুরো ওপেনরিকল অ্যাপটি ড্রাইভ করছেন। জটিল ফাইল স্ট্রাকচার তৈরি না করে মূল ফাইলগুলো সরাসরি রুট ডিরেক্টরিতে রেখে শর্টকাটে রান করা আপনার পছন্দের কাজের স্টাইল।</p>
-
-        <p><strong>প্রশ্ন ৬: আপনি কি কোডের রিড্যাবিলিটি (পঠনযোগ্যতা) ও কমেন্টের চেয়ে এর ভিজ্যুয়াল আউটপুটকে বেশি গুরুত্ব দেন?</strong><br>
-        <strong>উত্তর:</strong> হ্যাঁ, কোডে কোনো ইন-লাইন ডকুমেন্টেশন বা কাস্টম কমেন্ট নেই। চ্যাট প্যানেলে রঙিন থিম, ফুসিয়া অ্যাকসেন্ট এবং ইউজার ইন্টারফেসের ভিজ্যুয়াল দিকগুলোর স্ক্রিনশট দেখেই আপনি মূলত কাজটি সফল হয়েছে কি না তা মূল্যায়ন করছেন।</p>
-
-        <p><strong>প্রশ্ন ৭: ডাটাবেজ ইনিশিয়েট করার পর আপনি কি ডেটা যাচাই করেছেন, নাকি এআই-এর "সফল" মেসেজেই সন্তুষ্ট হয়েছেন?</strong><br>
-        <strong>উত্তর:</strong> চ্যাটবক্সে এআই যখন বলেছে "You can now start OpenRecall successfully", আপনি সরাসরি সেটির স্ক্রিনশট নিয়েছেন। ডাটাবেজে ডাটা ঠিকমতো ঢুকছে কি না তা নিজে কুয়েরি রান করে ম্যানুয়ালি যাচাই করার চেয়ে এআই-এর মেসেজকেই আপনি গ্র্যান্টেড ধরে নিয়েছেন।</p>
-
-        <p><strong>প্রশ্ন ৮: আপনি কি কাজের ক্ষেত্রে মাল্টি-টাস্কিং করতে গিয়ে ফোকাস হারাচ্ছেন?</strong><br>
-        <strong>উত্তর:</strong> উইন্ডোজ টাস্কবারে নিচে ক্রোম এবং অন্যান্য ব্যাকগ্রাউন্ড অ্যাপস ওপেন দেখা যাচ্ছে। স্ক্রিনশট নেওয়ার সময় আপনি হয়তো একই সাথে অন্য কাজও করছিলেন, যার ফলে এআই কোড জেনারেট করার সময় আপনার ইনপুট কিছুটা প্যাসিভ ছিল।</p>
-
-        <p><strong>প্রশ্ন ৯: আপনি কি কমান্ড লাইনের চেয়ে গ্রাফিক্যাল এডিটরের সুযোগ বেশি ব্যবহার করছেন?</strong><br>
-        <strong>উত্তর:</strong> হ্যাঁ, আপনি টার্মিনাল সফলভাবে ব্যবহার করার চেয়ে কোড এডিটর এবং এআই ইন্টারফেসের ভেতরেই বেশি সময় কাটাচ্ছেন, যা প্রথাগত কমান্ড-লাইন ডেভেলপারদের চেয়ে আধুনিক ও ভিউ-ভিত্তিক কাজের ধারা নির্দেশ করে।</p>
-
-        <p><strong>প্রশ্ন ১০: এআই ভুল কোড দিলেও কি আপনি তা না দেখেই রান করার ঝুঁকি নিতেন?</strong><br>
-        <strong>উত্তর:</strong> স্ক্রিনশটের অবস্থা অনুযায়ী আপনি কোডের ভেতরের <code>except ImportError</code> পার্টগুলো খুলে দেখছিলেন। এর অর্থ আপনি কিছুটা সতর্ক, কিন্তু এআই-এর দেওয়া ডাটাবেজ ফিক্সের কোডটি না পড়েই সরাসরি চ্যাট হিস্ট্রি দেখে রান করতে উদ্যোগী হয়েছেন।</p>
-        """
-        return jsonify({
-            "status": "success",
-            "critic": critic_text
-        })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -710,7 +737,7 @@ code_func_pattern = re.compile(r'(?:def|function|class|const|let|var|import|from
 error_pattern = re.compile(r'(?:Error|Exception|Traceback|Failed|FATAL|WARNING|npm\s*ERR!)[:\s].*', re.IGNORECASE)
 git_pattern = re.compile(r'(?:git\s+(?:commit|push|pull|merge|checkout|branch|add|status|diff|log|clone))', re.IGNORECASE)
 # Terminal/command patterns
-cmd_pattern = re.compile(r'(?:python|pip|npm|node|yarn|docker|cd|ls|dir|mkdir|cat|grep|curl|wget)\s+\S+', re.IGNORECASE)
+cmd_pattern = re.compile(r'\b(?:python|pip|npm|node|yarn|docker|mkdir|curl|wget)\s+[a-zA-Z0-9_\-\.]+\b', re.IGNORECASE)
 # Search query pattern
 search_query_pattern = re.compile(r'(?:Search|খুঁজুন|Search for|Searching)\s*[:\-]?\s*([^\n]{3,80})', re.IGNORECASE)
 # YouTube channel pattern
@@ -853,7 +880,12 @@ def extract_frame_details(text, title, app_name):
         if actions:
             details["visible_actions"] = list(set(a.lower() for a in actions))
         # Post content snippets - look for longer text blocks
-        lines = [l.strip() for l in ocr.split('\n') if len(l.strip()) > 30]
+        lines = []
+        ui_words = ["my drive", "search", "google", "settings", "notifications", "messenger", "friends", "watch", "marketplace"]
+        for l in ocr.split('\n'):
+            l = l.strip()
+            if len(l) > 30 and not any(uw in l.lower() for uw in ui_words):
+                lines.append(l)
         if lines:
             details["post_snippets"] = lines[:3]
         # User names (look for profile-like patterns)
@@ -863,7 +895,7 @@ def extract_frame_details(text, title, app_name):
     
     # ─── Code Editor Frame ───
     elif any(x in app_lower for x in ["code", "pycharm", "cursor", "sublime", "intellij", "vim", "neovim", "windsurf"]) or \
-         any(ext in title_lower for ext in [".py", ".js", ".html", ".css", ".tsx", ".jsx", ".go", ".rs", ".cpp", ".c", ".java"]):
+         any(title_lower.endswith(ext) or (ext + " ") in title_lower for ext in [".py", ".js", ".html", ".css", ".tsx", ".jsx", ".go", ".rs", ".cpp", ".c", ".java"]):
         details["platform"] = "code_editor"
         # Active filename from title
         filename = None
@@ -971,7 +1003,24 @@ def extract_frame_details(text, title, app_name):
         urls = url_pattern.findall(ocr)
         if urls:
             details["visible_urls"] = urls[:3]
+            
+    # ─── Generic Data Record Extraction ───
+    # Find lines that look like structured data/tasks (a mix of letters and numbers/codes)
+    data_records = []
+    ui_boilerplate = ["my drive", "search", "inbox", "outbox", "starred", "file", "edit", "view", "insert", "format", "tools", "extensions", "help", "share", "google", "yahoo", "chrome", "firefox", "window", "open", "save", "print", "settings", "recent", "trash", "storage"]
+    for line in ocr.split('\n'):
+        line = line.strip()
+        if len(line) < 10 or len(line) > 120: continue
+        lower_line = line.lower()
+        if any(ui in lower_line for ui in ui_boilerplate):
+            continue
+        # Heuristic for a record: contains letters and numbers, or specific uppercase codes
+        if (re.search(r'\d', line) and re.search(r'[a-zA-Z]{4,}', line)) or re.search(r'\b[A-Z]{2,4}\d{1,4}\b', line):
+            data_records.append(line)
     
+    if data_records:
+        details["data_records"] = list(set(data_records))
+
     return details
 
 
@@ -992,9 +1041,18 @@ def compute_text_diff_summary(prev_text, curr_text):
     changes = []
     
     # Filter for meaningful additions (not UI chrome)
-    ui_noise = {"search", "file", "edit", "view", "help", "window", "tools", "home", "back", "forward", "reload"}
-    meaningful_added = [l for l in added if not any(l.lower().startswith(n) for n in ui_noise) and len(l) > 8]
-    meaningful_removed = [l for l in removed if not any(l.lower().startswith(n) for n in ui_noise) and len(l) > 8]
+    ui_noise = {"search", "file", "edit", "view", "help", "window", "tools", "home", "back", "forward", "reload", "my drive", "inbox", "starred", "recent"}
+    meaningful_added = []
+    for l in added:
+        l_lower = l.lower()
+        if len(l) > 15 and not any(n in l_lower for n in ui_noise):
+            meaningful_added.append(l)
+            
+    meaningful_removed = []
+    for l in removed:
+        l_lower = l.lower()
+        if len(l) > 15 and not any(n in l_lower for n in ui_noise):
+            meaningful_removed.append(l)
     
     if meaningful_added:
         changes.append({"type": "text_appeared", "items": list(meaningful_added)[:5]})
@@ -1165,17 +1223,17 @@ def generate_session_detail_points(session_frames):
                     points.append({"action": action, "time": f_time, "icon": "📋"})
                     last_emitted_action = action
             
-            # Detect new numbers appearing (data entry)
-            prev_nums = set(prev_details.get("visible_numbers", []))
-            curr_nums = set(curr_details.get("visible_numbers", []))
-            new_nums = curr_nums - prev_nums
-            if new_nums and len(new_nums) <= 8:
-                nums_str = ", ".join(list(new_nums)[:5])
-                ctx_str = f" in {curr_ctx} sheet" if curr_ctx else ""
-                action = f"Entered data{ctx_str}: {nums_str}"
-                if action != last_emitted_action:
-                    points.append({"action": action, "time": f_time, "icon": "📝"})
-                    last_emitted_action = action
+            # Detect new data records appearing (instead of isolated numbers)
+            prev_recs = set(prev_details.get("data_records", []))
+            curr_recs = set(curr_details.get("data_records", []))
+            new_recs = curr_recs - prev_recs
+            if new_recs:
+                valid_new = [nr for nr in new_recs if not any(difflib.SequenceMatcher(None, nr, pr).ratio() > 0.8 for pr in prev_recs)]
+                for rec in valid_new[:2]:
+                    action = f"Working on record/task: \"{rec[:60]}\""
+                    if action != last_emitted_action:
+                        points.append({"action": action, "time": f_time, "icon": "📝"})
+                        last_emitted_action = action
             
             # Formula usage
             prev_formulas = prev_details.get("formulas_visible", [])
@@ -1203,7 +1261,7 @@ def generate_session_detail_points(session_frames):
             new_syms = curr_syms - prev_syms
             if new_syms and len(new_syms) <= 5:
                 sym_str = ", ".join(list(new_syms)[:3])
-                action = f"Working on: {sym_str}"
+                action = f"Screen content includes code constructs: {sym_str}"
                 if action != last_emitted_action:
                     points.append({"action": action, "time": f_time, "icon": "⚙️"})
                     last_emitted_action = action
@@ -1375,7 +1433,8 @@ def generate_session_detail_points(session_frames):
     # Session duration summary
     total_dur = l_ts - session_frames[0][3]
     if total_dur > 0:
-        points.append({"action": f"Total session duration: {format_seconds(total_dur)} ({len(session_frames)} frames captured)", "time": l_time, "icon": "⏱️"})
+        start_time_str = datetime.datetime.fromtimestamp(session_frames[0][3]).strftime("%I:%M:%S %p")
+        points.append({"action": f"Session lasted from {start_time_str} to {l_time} (Duration: {format_seconds(total_dur)})", "time": l_time, "icon": "⏱️"})
     
     # ─── 4. Ensure minimum 10 points — fill with frame-level observations ───
     if len(points) < 10 and len(session_frames) > 1:
@@ -1398,9 +1457,9 @@ def generate_session_detail_points(session_frames):
                 if details.get("visible_stats"):
                     points.append({"action": f"Video stats visible: {', '.join(details['visible_stats'][:3])}", "time": f_time_str, "icon": "📊"})
             elif details.get("platform") == "spreadsheet":
-                if details.get("cell_references"):
-                    refs = ", ".join(details["cell_references"][:5])
-                    points.append({"action": f"Active cell references: {refs}", "time": f_time_str, "icon": "📊"})
+                if details.get("data_records"):
+                    rec = details["data_records"][0][:70]
+                    points.append({"action": f"Current context: \"{rec}...\"", "time": f_time_str, "icon": "📊"})
             elif details.get("platform") == "code_editor":
                 if details.get("imports"):
                     imp_str = ", ".join(details["imports"][:4])
@@ -1421,14 +1480,20 @@ def generate_session_detail_points(session_frames):
     # If still under 10 points for very short sessions, add observations about the overall session
     if len(points) < 10:
         # Add window title info
-        unique_titles = list(set((f[1] or "")[:60] for f in session_frames if f[1]))
-        if len(unique_titles) > 1:
-            points.append({"action": f"Window titles during session: {', '.join(unique_titles[:4])}", "time": time_str, "icon": "🪟"})
+        cleaned_titles = []
+        for f in session_frames:
+            if f[1]:
+                t = f[1].replace("- Google Chrome", "").replace("- Mozilla Firefox", "").strip()
+                if len(t) > 55: t = t[:52] + "..."
+                if t and not any(t in ex or ex in t for ex in cleaned_titles):
+                    cleaned_titles.append(t)
+        if len(cleaned_titles) > 1:
+            points.append({"action": f"Window titles during session: {', '.join(cleaned_titles[:3])}", "time": time_str, "icon": "🪟"})
         
         # Add app info
-        unique_apps = list(set((f[0] or "unknown") for f in session_frames if f[0]))
+        unique_apps = list(set((f[0] or "unknown") for f in session_frames if f[0] and f[0].lower() not in ["chrome.exe", "msedge.exe", "explorer.exe", "unknown"]))
         if unique_apps:
-            points.append({"action": f"Applications used: {', '.join(unique_apps[:4])}", "time": time_str, "icon": "📱"})
+            points.append({"action": f"Specific applications detected: {', '.join(unique_apps[:4])}", "time": time_str, "icon": "📱"})
         
         # Add text volume info
         total_chars = sum(len(f[2] or "") for f in session_frames)

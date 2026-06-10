@@ -10,3 +10,4 @@ ENV/
 .vscode/
 *.db
 *.log
+groqapi.txt
