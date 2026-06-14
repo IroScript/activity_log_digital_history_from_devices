@@ -103,54 +103,27 @@ def get_active_window_title_windows():
     return window_title
 
 
-def get_active_window_id_linux():
+def get_linux_window_info():
     try:
-        import subprocess
-        out = subprocess.check_output(["xprop", "-root", "_NET_ACTIVE_WINDOW"], stderr=subprocess.DEVNULL).decode("utf-8", errors="ignore")
-        parts = out.split("#")
-        if len(parts) > 1:
-            window_id = parts[1].strip()
-            if window_id == "0x0" or not window_id:
-                return None
-            return window_id
+        import os, json
+        filepath = "/tmp/openrecall_active_window.json"
+        if os.path.exists(filepath):
+            with open(filepath, "r") as f:
+                data = json.load(f)
+                return data.get("app", "Linux App"), data.get("title", "Linux Window")
     except Exception:
         pass
-    return None
+    return "Linux App", "Linux Window"
 
 
 def get_active_app_name_linux():
-    try:
-        window_id = get_active_window_id_linux()
-        if not window_id:
-            return "Linux App"
-        import subprocess
-        out = subprocess.check_output(["xprop", "-id", window_id, "WM_CLASS"], stderr=subprocess.DEVNULL).decode("utf-8", errors="ignore")
-        if "not found" not in out and "=" in out:
-            val = out.split("=")[1].strip()
-            parts = [v.strip().strip('"') for v in val.split(",")]
-            if parts:
-                return parts[-1]
-    except Exception:
-        pass
-    return "Linux App"
+    app_name, _ = get_linux_window_info()
+    return app_name
 
 
 def get_active_window_title_linux():
-    try:
-        window_id = get_active_window_id_linux()
-        if not window_id:
-            return "Linux Window"
-        import subprocess
-        for prop in ["_NET_WM_NAME", "WM_NAME"]:
-            out = subprocess.check_output(["xprop", "-id", window_id, prop], stderr=subprocess.DEVNULL).decode("utf-8", errors="ignore")
-            if "not found" not in out and "=" in out:
-                val = out.split("=")[1].strip()
-                if val.startswith('"') and val.endswith('"'):
-                    val = val[1:-1]
-                return val
-    except Exception:
-        pass
-    return "Linux Window"
+    _, title = get_linux_window_info()
+    return title
 
 
 def get_active_app_name():
@@ -564,7 +537,7 @@ def api_timeline():
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
     results = c.execute(
-        "SELECT id, app, title, text, timestamp FROM entries ORDER BY timestamp DESC LIMIT 1000"
+        "SELECT id, app, title, text, timestamp FROM entries ORDER BY timestamp DESC"
     ).fetchall()
     conn.close()
     
