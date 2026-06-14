@@ -1,0 +1,8 @@
+{
+  "name": "Unsafe Mode Autostart",
+  "description": "Automatically enables unsafe mode for taking screenshots in Wayland.",
+  "uuid": "unsafe-mode-autostart@openrecall",
+  "shell-version": [
+    "50"
+  ]
+}

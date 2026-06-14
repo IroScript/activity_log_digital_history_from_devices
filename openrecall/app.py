@@ -228,31 +228,37 @@ def take_screenshot(monitor=1):
         import re
         import time
         from PIL import Image
-        filename = f"openrecall_screen_{int(time.time())}.png"
-        try:
-            result = subprocess.run(
-                ["gdbus", "call", "--session",
-                 "--dest", "org.gnome.Shell.Screenshot",
-                 "--object-path", "/org/gnome/Shell/Screenshot",
-                 "--method", "org.gnome.Shell.Screenshot.Screenshot",
-                 "false", "false", filename],
-                capture_output=True, text=True, timeout=5
-            )
-            output = result.stdout
-            if result.returncode == 0 and "true," in output:
-                match = re.search(r"'(.*?)'", output)
-                if match:
-                    file_path = match.group(1)
-                    if os.path.exists(file_path):
-                        img = Image.open(file_path).convert("RGB")
-                        screenshot = np.array(img)
-                        try:
-                            os.remove(file_path)
-                        except:
-                            pass
-                        return screenshot
-        except Exception as e:
-            print(f"Error taking DBus screenshot: {e}")
+        
+        is_wayland = "WAYLAND_DISPLAY" in os.environ or os.environ.get("XDG_SESSION_TYPE") == "wayland"
+        
+        if is_wayland:
+            filename = f"openrecall_screen_{int(time.time())}.png"
+            try:
+                result = subprocess.run(
+                    ["gdbus", "call", "--session",
+                     "--dest", "org.gnome.Shell.Screenshot",
+                     "--object-path", "/org/gnome/Shell/Screenshot",
+                     "--method", "org.gnome.Shell.Screenshot.Screenshot",
+                     "false", "false", filename],
+                    capture_output=True, text=True, timeout=5
+                )
+                output = result.stdout
+                if result.returncode == 0 and "true," in output:
+                    match = re.search(r"'(.*?)'", output)
+                    if match:
+                        file_path = match.group(1)
+                        if os.path.exists(file_path):
+                            img = Image.open(file_path).convert("RGB")
+                            screenshot = np.array(img)
+                            try:
+                                os.remove(file_path)
+                            except:
+                                pass
+                            return screenshot
+                raise Exception(f"GNOME Screenshot DBus API failed (output: {output})")
+            except Exception as e:
+                raise Exception(f"Wayland DBus screenshot failed: {e}")
+        # If it's Linux but not Wayland, we can fall through to mss
 
     # Fallback for Windows/Mac or X11
     with mss.mss() as sct:

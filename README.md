@@ -11,7 +11,7 @@ This repository contains a heavily customized, sci-fi "50,000-year quantum" insp
 - `run_openrecall.py`: The entry point script to run the local OpenRecall server.
 - `init_openrecall_db.py`: Initializes the SQLite database.
 - `openrecall/`: Local package directory containing customized Flask logic (`app.py`) and frontend templates (`templates/index.html`).
-- `quantum_logo_50k (1).html`: Independent prototype showing the premium Three.js 3D logo animation.
+- `linux_setup/`: Contains scripts and GNOME extensions to enable automated background screenshots on Ubuntu Wayland.
 
 ## How to Run Locally
 
@@ -31,3 +31,18 @@ This repository contains a heavily customized, sci-fi "50,000-year quantum" insp
    python run_openrecall.py
    ```
    Open `http://127.0.0.1:5000` in your web browser.
+
+## Ubuntu / Linux Wayland Autostart Setup
+
+On modern Ubuntu (Wayland), taking automated screenshots in the background is blocked by default for security reasons.
+
+To set up the tracker to run automatically on boot and bypass the Wayland screenshot restrictions, run the included setup script:
+
+```bash
+chmod +x linux_setup/install.sh
+./linux_setup/install.sh
+```
+
+**Important**: After running the script:
+1. You **must** Log Out and Log In again for GNOME to load the extension.
+2. Open the **Extensions** app in Ubuntu and ensure **Unsafe Mode Autostart** is turned **ON**.
