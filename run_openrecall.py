@@ -5,6 +5,9 @@ This script runs the OpenRecall Flask application
 """
 
 try:
+    import os
+    os.environ["GLOG_minloglevel"] = "2"
+    
     import threading
     import sys
     if sys.platform == "win32":
@@ -16,6 +19,9 @@ try:
             pass
             
     import openrecall
+    print("=" * 60)
+    print("Note: NNPACK is disabled or unsupported on this hardware.")
+    print("PyTorch warnings about NNPACK initialization can be safely ignored.")
     print("=" * 60)
     print(f"Using openrecall package from: {openrecall.__file__}")
     from openrecall.app import app, create_db, record_screenshot_thread

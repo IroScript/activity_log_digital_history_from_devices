@@ -103,13 +103,63 @@ def get_active_window_title_windows():
     return window_title
 
 
+def get_active_window_id_linux():
+    try:
+        import subprocess
+        out = subprocess.check_output(["xprop", "-root", "_NET_ACTIVE_WINDOW"], stderr=subprocess.DEVNULL).decode("utf-8", errors="ignore")
+        parts = out.split("#")
+        if len(parts) > 1:
+            window_id = parts[1].strip()
+            if window_id == "0x0" or not window_id:
+                return None
+            return window_id
+    except Exception:
+        pass
+    return None
+
+
+def get_active_app_name_linux():
+    try:
+        window_id = get_active_window_id_linux()
+        if not window_id:
+            return "Linux App"
+        import subprocess
+        out = subprocess.check_output(["xprop", "-id", window_id, "WM_CLASS"], stderr=subprocess.DEVNULL).decode("utf-8", errors="ignore")
+        if "not found" not in out and "=" in out:
+            val = out.split("=")[1].strip()
+            parts = [v.strip().strip('"') for v in val.split(",")]
+            if parts:
+                return parts[-1]
+    except Exception:
+        pass
+    return "Linux App"
+
+
+def get_active_window_title_linux():
+    try:
+        window_id = get_active_window_id_linux()
+        if not window_id:
+            return "Linux Window"
+        import subprocess
+        for prop in ["_NET_WM_NAME", "WM_NAME"]:
+            out = subprocess.check_output(["xprop", "-id", window_id, prop], stderr=subprocess.DEVNULL).decode("utf-8", errors="ignore")
+            if "not found" not in out and "=" in out:
+                val = out.split("=")[1].strip()
+                if val.startswith('"') and val.endswith('"'):
+                    val = val[1:-1]
+                return val
+    except Exception:
+        pass
+    return "Linux Window"
+
+
 def get_active_app_name():
     if sys.platform == "win32":
         return get_active_app_name_windows()
     elif sys.platform == "darwin":
         return get_active_app_name_osx()
     else:
-        raise NotImplementedError("This platform is not supported")
+        return get_active_app_name_linux()
 
 
 def get_active_window_title():
@@ -118,7 +168,7 @@ def get_active_window_title():
     elif sys.platform == "darwin":
         return get_active_window_title_osx()
     else:
-        raise NotImplementedError("This platform is not supported")
+        return get_active_window_title_linux()
 
 
 def create_db():
@@ -171,6 +221,40 @@ def take_screenshot(monitor=1):
     Returns:
         numpy.ndarray: The screenshot image as a numpy array.
     """
+    import sys
+    if sys.platform.startswith("linux"):
+        import os
+        import subprocess
+        import re
+        import time
+        from PIL import Image
+        filename = f"openrecall_screen_{int(time.time())}.png"
+        try:
+            result = subprocess.run(
+                ["gdbus", "call", "--session",
+                 "--dest", "org.gnome.Shell.Screenshot",
+                 "--object-path", "/org/gnome/Shell/Screenshot",
+                 "--method", "org.gnome.Shell.Screenshot.Screenshot",
+                 "false", "false", filename],
+                capture_output=True, text=True, timeout=5
+            )
+            output = result.stdout
+            if result.returncode == 0 and "true," in output:
+                match = re.search(r"'(.*?)'", output)
+                if match:
+                    file_path = match.group(1)
+                    if os.path.exists(file_path):
+                        img = Image.open(file_path).convert("RGB")
+                        screenshot = np.array(img)
+                        try:
+                            os.remove(file_path)
+                        except:
+                            pass
+                        return screenshot
+        except Exception as e:
+            print(f"Error taking DBus screenshot: {e}")
+
+    # Fallback for Windows/Mac or X11
     with mss.mss() as sct:
         monitor_ = sct.monitors[monitor]
         screenshot = np.array(sct.grab(monitor_))
@@ -180,27 +264,32 @@ def take_screenshot(monitor=1):
 def record_screenshot_thread():
     """
     Thread function to continuously record screenshots and process them.
-
-    This function takes screenshots at regular intervals and compares them with the previous screenshot.
-    If the new screenshot is different enough from the previous one, it saves the screenshot, performs OCR on it,
-    extracts the text, computes the embedding, and stores the entry in the database.
-
-    Returns:
-        None
     """
+    print("[OpenRecall Thread] Thread started successfully.", flush=True)
     last_screenshot = None
     while last_screenshot is None:
         try:
             last_screenshot = take_screenshot()
+            print("[OpenRecall Thread] Initial screenshot captured successfully.", flush=True)
         except Exception as e:
-            print(f"Error taking initial screenshot: {e}. Retrying in 5 seconds...")
+            print(f"[OpenRecall Thread] Error taking initial screenshot: {e}. Retrying in 5 seconds...", flush=True)
             time.sleep(5)
+
+    first_run = True
 
     while True:
         try:
             screenshot = take_screenshot()
+            similarity = mean_structured_similarity_index(screenshot, last_screenshot)
+            print(f"[OpenRecall Thread] Captured frame. Similarity with previous: {similarity:.4f}", flush=True)
 
-            if not is_similar(screenshot, last_screenshot):
+            if first_run or similarity < 0.95:
+                if first_run:
+                    print("[OpenRecall Thread] Saving first screenshot immediately...", flush=True)
+                    first_run = False
+                else:
+                    print(f"[OpenRecall Thread] Screen changed (similarity={similarity:.4f} < 0.95). Saving...", flush=True)
+                
                 last_screenshot = screenshot
                 image = Image.fromarray(screenshot)
                 timestamp = int(time.time())
@@ -209,6 +298,8 @@ def record_screenshot_thread():
                     format="webp",
                     lossless=True,
                 )
+                print(f"[OpenRecall Thread] WebP image saved at: {timestamp}.webp. Running OCR...", flush=True)
+                
                 result = ocr([screenshot])
                 text = ""
 
@@ -220,9 +311,12 @@ def record_screenshot_thread():
                             text += "\n"
                         text += "\n"
 
+                print(f"[OpenRecall Thread] OCR complete. Characters extracted: {len(text)}. Computing embedding...", flush=True)
                 embedding = get_embedding(text)
                 active_app_name = get_active_app_name()
                 active_window_title = get_active_window_title()
+                
+                print(f"[OpenRecall Thread] Active App: {active_app_name} | Window: {active_window_title}", flush=True)
 
                 # connect to db
                 conn = sqlite3.connect(db_path)
@@ -244,8 +338,9 @@ def record_screenshot_thread():
                 # Commit the transaction
                 conn.commit()
                 conn.close()
+                print("[OpenRecall Thread] Saved frame successfully to SQLite database.", flush=True)
         except Exception as e:
-            print(f"Error in screenshot recording thread: {e}. Continuing in 3 seconds...")
+            print(f"[OpenRecall Thread] Error in screenshot loop: {e}. Continuing in 3 seconds...", flush=True)
 
         time.sleep(3)
 
