@@ -1,4 +1,4 @@
-const { GLib, Gio } = imports.gi;
+const { GLib, Gio, Shell } = imports.gi;
 
 export default class UnsafeModeExtension {
     constructor() {
@@ -17,7 +17,7 @@ export default class UnsafeModeExtension {
                 if (focusWindow) {
                     windowTitle = focusWindow.get_title() || "Linux Window";
                     
-                    let tracker = global.window_manager ? global.window_manager.get_window_tracker() : null;
+                    let tracker = Shell.WindowTracker.get_default();
                     let app = tracker ? tracker.get_window_app(focusWindow) : null;
                     
                     if (app) {
